@@ -1,0 +1,15 @@
+# Core dependencies核心依赖
+adafruit-circuitpython-dht
+adafruit-circuitpython-tsl2591
+rpi_ws281x
+adafruit-circuitpython-neopixel
+
+# Data Processing and Visualization数据处理与可视化
+pandas
+matplotlib
+
+# Web development Web开发
+flask
+
+# Other 其他
+numpy
