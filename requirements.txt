@@ -1,4 +1,6 @@
 # Core dependencies (cross-platform) 核心依赖
+opencv-python
+mediapipe
 pandas
 matplotlib
 flask
@@ -6,5 +8,12 @@ numpy
 deepface
 tf-keras
 
+# Test dependencies (used in tests/Casey/ folder)
+# - opencv-python: camera tests, face/object/pose detection tests
+# - mediapipe: face landmarker, object detector, pose landmarker tests
+# - numpy: visualization utilities
+
+# Hardware dependencies are in requirements-hardware.txt
+# Install only on Raspberry Pi: pip install -r requirements-hardware.txt
 # Hardware dependencies are in requirements-hardware.txt
 # Install only on Raspberry Pi: pip install -r requirements-hardware.txt
