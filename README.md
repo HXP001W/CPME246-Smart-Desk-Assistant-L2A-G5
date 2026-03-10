@@ -39,8 +39,16 @@ For detailed DeepFace documentation, see [`modules/deepface/README.md`](modules/
 ## Installation
 
 ### Requirements
+
+#### For Development (Windows/Mac/Linux)
 ```bash
 pip install -r requirements.txt
+```
+
+#### For Raspberry Pi Deployment (Hardware Dependencies)
+On Raspberry Pi only, install additional hardware dependencies:
+```bash
+pip install -r requirements-hardware.txt
 ```
 
 ### DeepFace Setup

@@ -1,0 +1,8 @@
+# Hardware-specific dependencies for Raspberry Pi only
+# These require Raspberry Pi hardware and GPIO support
+# Install on Raspberry Pi with: pip install -r requirements-hardware.txt
+
+adafruit-circuitpython-dht
+adafruit-circuitpython-tsl2591
+rpi_ws281x
+adafruit-circuitpython-neopixel
