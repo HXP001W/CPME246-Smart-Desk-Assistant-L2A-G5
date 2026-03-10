@@ -15,3 +15,5 @@ tf-keras
 
 # Hardware dependencies are in requirements-hardware.txt
 # Install only on Raspberry Pi: pip install -r requirements-hardware.txt
+# Hardware dependencies are in requirements-hardware.txt
+# Install only on Raspberry Pi: pip install -r requirements-hardware.txt

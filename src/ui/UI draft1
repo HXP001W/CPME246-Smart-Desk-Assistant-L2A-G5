@@ -1,0 +1,644 @@
+import tkinter as tk
+from tkinter import messagebox
+
+# =========================
+# Theme
+# =========================
+BG = "#0B1026"
+PANEL = "#121935"
+CARD = "#1A2247"
+ACCENT = "#18E0A8"
+ACCENT_2 = "#00C2FF"
+WHITE = "#F5F7FF"
+MUTED = "#97A0C3"
+RED = "#FF4D67"
+RED_DARK = "#341427"
+YELLOW = "#FFD166"
+BTN_DARK = "#2A346B"
+
+USERNAME = "watergun"
+
+
+class SmartDeskUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Smart Desk UI")
+        self.root.configure(bg=BG)
+        self.root.geometry("480x320")
+        self.root.resizable(False, False)
+
+        self.root.bind("<F11>", self.toggle_fullscreen)
+        self.root.bind("<Escape>", self.exit_fullscreen)
+
+        # app state
+        self.mode = "menu"           # menu, focus, watergun, finished
+        self.time_mode = "countdown" # countdown / countup
+        self.total_seconds = 25 * 60
+        self.current_seconds = 25 * 60
+        self.running = False
+        self.paused = False
+
+        # animation
+        self.watergun_job = None
+        self.timer_job = None
+        self.spray_phase = 0
+
+        self.build_ui()
+        self.show_menu()
+
+    # =========================
+    # Basic helpers
+    # =========================
+    def clear_screen(self):
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def toggle_fullscreen(self, event=None):
+        self.root.attributes("-fullscreen", not self.root.attributes("-fullscreen"))
+
+    def exit_fullscreen(self, event=None):
+        self.root.attributes("-fullscreen", False)
+
+    def format_time(self, secs):
+        mins = secs // 60
+        sec = secs % 60
+        return f"{mins:02d}:{sec:02d}"
+
+    def stop_jobs(self):
+        if self.timer_job:
+            self.root.after_cancel(self.timer_job)
+            self.timer_job = None
+        if self.watergun_job:
+            self.root.after_cancel(self.watergun_job)
+            self.watergun_job = None
+
+    # =========================
+    # Screen 1: Menu / Time select
+    # =========================
+    def show_menu(self):
+        self.stop_jobs()
+        self.mode = "menu"
+        self.clear_screen()
+
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill="both", expand=True)
+
+        # Header
+        top = tk.Frame(main, bg=BG)
+        top.pack(fill="x", padx=12, pady=(10, 6))
+
+        avatar = tk.Canvas(top, width=30, height=30, bg=BG, highlightthickness=0)
+        avatar.create_oval(2, 2, 28, 28, fill=ACCENT, outline=ACCENT)
+        avatar.create_text(15, 15, text="W", fill=WHITE, font=("Arial", 12, "bold"))
+        avatar.pack(side="left")
+
+        tk.Label(
+            top, text=USERNAME, bg=BG, fg=WHITE,
+            font=("Arial", 14, "bold")
+        ).pack(side="left", padx=(8, 4))
+
+        dot = tk.Canvas(top, width=10, height=10, bg=BG, highlightthickness=0)
+        dot.create_oval(2, 2, 8, 8, fill=ACCENT, outline=ACCENT)
+        dot.pack(side="left")
+
+        tk.Label(
+            main,
+            text="SMART FOCUS SYSTEM",
+            bg=BG,
+            fg=ACCENT_2,
+            font=("Arial", 17, "bold")
+        ).pack(pady=(6, 4))
+
+        tk.Label(
+            main,
+            text="Choose your focus time",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 11)
+        ).pack()
+
+        # Time entry panel
+        panel = tk.Frame(main, bg=PANEL, bd=0, highlightthickness=0)
+        panel.pack(padx=20, pady=12, fill="x")
+
+        tk.Label(
+            panel,
+            text="Minutes",
+            bg=PANEL,
+            fg=WHITE,
+            font=("Arial", 12, "bold")
+        ).pack(pady=(12, 4))
+
+        self.minute_var = tk.StringVar(value="25")
+        entry = tk.Entry(
+            panel,
+            textvariable=self.minute_var,
+            justify="center",
+            font=("Arial", 20, "bold"),
+            bg="#0F1530",
+            fg=ACCENT,
+            insertbackground=WHITE,
+            relief="flat",
+            width=8
+        )
+        entry.pack(pady=(0, 10), ipady=6)
+
+        # mode select
+        mode_row = tk.Frame(panel, bg=PANEL)
+        mode_row.pack(pady=(0, 12))
+
+        self.mode_btn_down = tk.Button(
+            mode_row,
+            text="Countdown",
+            bg=ACCENT,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 10, "bold"),
+            padx=12,
+            pady=8,
+            command=lambda: self.set_time_mode("countdown")
+        )
+        self.mode_btn_down.pack(side="left", padx=6)
+
+        self.mode_btn_up = tk.Button(
+            mode_row,
+            text="Count Up",
+            bg=BTN_DARK,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 10, "bold"),
+            padx=12,
+            pady=8,
+            command=lambda: self.set_time_mode("countup")
+        )
+        self.mode_btn_up.pack(side="left", padx=6)
+
+        # quick presets
+        preset_row = tk.Frame(main, bg=BG)
+        preset_row.pack(pady=(0, 10))
+
+        for val in [15, 25, 45]:
+            tk.Button(
+                preset_row,
+                text=f"{val}m",
+                bg=BTN_DARK,
+                fg=WHITE,
+                relief="flat",
+                font=("Arial", 10, "bold"),
+                padx=10,
+                pady=6,
+                command=lambda v=val: self.minute_var.set(str(v))
+            ).pack(side="left", padx=5)
+
+        tk.Button(
+            main,
+            text="START FOCUS",
+            bg=ACCENT,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 14, "bold"),
+            padx=18,
+            pady=10,
+            command=self.start_focus
+        ).pack(pady=(2, 10))
+
+        footer = tk.Label(
+            main,
+            text="Cool mode: Distracted → Water Gun Animation → Continue / Give Up",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 8)
+        )
+        footer.pack(side="bottom", pady=8)
+
+        self.refresh_mode_buttons()
+
+    def set_time_mode(self, mode):
+        self.time_mode = mode
+        self.refresh_mode_buttons()
+
+    def refresh_mode_buttons(self):
+        if hasattr(self, "mode_btn_down"):
+            if self.time_mode == "countdown":
+                self.mode_btn_down.config(bg=ACCENT)
+                self.mode_btn_up.config(bg=BTN_DARK)
+            else:
+                self.mode_btn_up.config(bg=ACCENT)
+                self.mode_btn_down.config(bg=BTN_DARK)
+
+    def start_focus(self):
+        try:
+            mins = int(self.minute_var.get())
+            if mins <= 0:
+                raise ValueError
+        except:
+            messagebox.showerror("Invalid Time", "Please enter a positive integer number of minutes.")
+            return
+
+        self.total_seconds = mins * 60
+        if self.time_mode == "countdown":
+            self.current_seconds = self.total_seconds
+        else:
+            self.current_seconds = 0
+
+        self.running = True
+        self.paused = False
+        self.show_focus_screen()
+
+    # =========================
+    # Screen 2: Focus mode
+    # =========================
+    def show_focus_screen(self):
+        self.stop_jobs()
+        self.mode = "focus"
+        self.clear_screen()
+
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill="both", expand=True)
+
+        # Header
+        top = tk.Frame(main, bg=BG)
+        top.pack(fill="x", padx=12, pady=(10, 4))
+
+        avatar = tk.Canvas(top, width=28, height=28, bg=BG, highlightthickness=0)
+        avatar.create_oval(2, 2, 26, 26, fill=ACCENT, outline=ACCENT)
+        avatar.create_text(14, 14, text="W", fill=WHITE, font=("Arial", 11, "bold"))
+        avatar.pack(side="left")
+
+        tk.Label(top, text=USERNAME, bg=BG, fg=WHITE, font=("Arial", 14, "bold")).pack(side="left", padx=(6, 3))
+
+        dot = tk.Canvas(top, width=10, height=10, bg=BG, highlightthickness=0)
+        dot.create_oval(2, 2, 8, 8, fill=ACCENT, outline=ACCENT)
+        dot.pack(side="left")
+
+        tk.Label(
+            top,
+            text="FOCUS MODE",
+            bg=BG,
+            fg=ACCENT_2,
+            font=("Arial", 10, "bold")
+        ).pack(side="right")
+
+        # timer
+        self.timer_label = tk.Label(
+            main,
+            text=self.format_time(self.current_seconds),
+            bg=BG,
+            fg=ACCENT,
+            font=("Arial", 40, "bold")
+        )
+        self.timer_label.pack(pady=(10, 2))
+
+        self.subtitle = tk.Label(
+            main,
+            text="Focus Mode Running",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 13)
+        )
+        self.subtitle.pack()
+
+        mode_text = "Countdown" if self.time_mode == "countdown" else "Count Up"
+        tk.Label(
+            main,
+            text=f"Timer Type: {mode_text}",
+            bg=BG,
+            fg="#7ED8FF",
+            font=("Arial", 9)
+        ).pack(pady=(2, 8))
+
+        # buttons row 1
+        row1 = tk.Frame(main, bg=BG)
+        row1.pack(pady=(4, 8))
+
+        self.pause_btn = tk.Button(
+            row1,
+            text="Pause",
+            bg=BTN_DARK,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=12,
+            pady=8,
+            command=self.toggle_pause
+        )
+        self.pause_btn.pack(side="left", padx=5)
+
+        tk.Button(
+            row1,
+            text="End",
+            bg=ACCENT,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=16,
+            pady=8,
+            command=self.finish_session
+        ).pack(side="left", padx=5)
+
+        # buttons row 2
+        row2 = tk.Frame(main, bg=BG)
+        row2.pack(pady=(0, 10))
+
+        tk.Button(
+            row2,
+            text="DISTRACTED",
+            bg=RED,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=18,
+            pady=8,
+            command=self.show_watergun_screen
+        ).pack()
+
+        # sensor cards
+        cards = tk.Frame(main, bg=BG)
+        cards.pack(side="bottom", pady=10)
+
+        self.make_card(cards, "22°C", "Temp").pack(side="left", padx=4)
+        self.make_card(cards, "450 lux", "Light").pack(side="left", padx=4)
+        self.make_card(cards, "35 dB", "Noise").pack(side="left", padx=4)
+
+        self.update_timer()
+
+    def make_card(self, parent, value, label):
+        card = tk.Frame(parent, bg=CARD, width=145, height=60)
+        card.pack_propagate(False)
+
+        tk.Label(
+            card, text=value, bg=CARD, fg=ACCENT,
+            font=("Arial", 14, "bold")
+        ).pack(pady=(8, 1))
+
+        tk.Label(
+            card, text=label, bg=CARD, fg=MUTED,
+            font=("Arial", 9)
+        ).pack()
+
+        return card
+
+    def update_timer(self):
+        if self.mode != "focus":
+            return
+
+        if self.running and not self.paused:
+            if self.time_mode == "countdown":
+                if self.current_seconds > 0:
+                    self.current_seconds -= 1
+                else:
+                    self.finish_session(auto=True)
+                    return
+            else:
+                self.current_seconds += 1
+
+        self.timer_label.config(text=self.format_time(self.current_seconds))
+        self.timer_job = self.root.after(1000, self.update_timer)
+
+    def toggle_pause(self):
+        if not self.running:
+            return
+
+        self.paused = not self.paused
+        if self.paused:
+            self.pause_btn.config(text="Resume")
+            self.subtitle.config(text="Paused", fg=YELLOW)
+        else:
+            self.pause_btn.config(text="Pause")
+            self.subtitle.config(text="Focus Mode Running", fg=MUTED)
+
+    def finish_session(self, auto=False):
+        self.stop_jobs()
+        self.running = False
+        self.paused = False
+        self.mode = "finished"
+        self.clear_screen()
+
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill="both", expand=True)
+
+        tk.Label(
+            main,
+            text="MISSION COMPLETE" if auto else "SESSION ENDED",
+            bg=BG,
+            fg=ACCENT,
+            font=("Arial", 22, "bold")
+        ).pack(pady=(50, 10))
+
+        tk.Label(
+            main,
+            text=self.format_time(self.current_seconds),
+            bg=BG,
+            fg=WHITE,
+            font=("Arial", 34, "bold")
+        ).pack(pady=6)
+
+        tk.Label(
+            main,
+            text="Nice work, watergun.",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 13)
+        ).pack(pady=6)
+
+        row = tk.Frame(main, bg=BG)
+        row.pack(pady=18)
+
+        tk.Button(
+            row,
+            text="Back to Menu",
+            bg=BTN_DARK,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=14,
+            pady=8,
+            command=self.show_menu
+        ).pack(side="left", padx=6)
+
+        tk.Button(
+            row,
+            text="Restart",
+            bg=ACCENT,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=18,
+            pady=8,
+            command=self.show_menu
+        ).pack(side="left", padx=6)
+
+    # =========================
+    # Screen 3: Water gun alert
+    # =========================
+    def show_watergun_screen(self):
+        self.stop_jobs()
+        self.mode = "watergun"
+        self.clear_screen()
+
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill="both", expand=True)
+
+        tk.Label(
+            main,
+            text="⚠ DISTRACTION DETECTED ⚠",
+            bg=BG,
+            fg=RED,
+            font=("Arial", 18, "bold")
+        ).pack(pady=(10, 4))
+
+        tk.Label(
+            main,
+            text="Water Gun Activated",
+            bg=BG,
+            fg=WHITE,
+            font=("Arial", 14, "bold")
+        ).pack()
+
+        tk.Label(
+            main,
+            text="Focus now or get sprayed.",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 10)
+        ).pack(pady=(2, 6))
+
+        self.canvas = tk.Canvas(
+            main,
+            width=420,
+            height=140,
+            bg="#0F1530",
+            highlightthickness=1,
+            highlightbackground="#28315F"
+        )
+        self.canvas.pack(pady=6)
+
+        # draw gun
+        self.canvas.create_rectangle(35, 70, 130, 95, fill="#7ED8FF", outline="")
+        self.canvas.create_rectangle(120, 78, 180, 88, fill=ACCENT, outline="")
+        self.canvas.create_rectangle(55, 95, 80, 130, fill="#4EA8DE", outline="")
+        self.canvas.create_oval(25, 68, 45, 97, fill=ACCENT_2, outline="")
+
+        self.spray_items = []
+        self.animate_watergun()
+
+        row = tk.Frame(main, bg=BG)
+        row.pack(pady=(12, 0))
+
+        tk.Button(
+            row,
+            text="Stop Water Gun & Continue",
+            bg=ACCENT,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=8,
+            command=self.continue_after_watergun
+        ).pack(side="left", padx=5)
+
+        tk.Button(
+            row,
+            text="Give Up",
+            bg=RED,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 10, "bold"),
+            padx=16,
+            pady=8,
+            command=self.give_up
+        ).pack(side="left", padx=5)
+
+    def animate_watergun(self):
+        if self.mode != "watergun":
+            return
+
+        # clear previous spray
+        for item in self.spray_items:
+            self.canvas.delete(item)
+        self.spray_items.clear()
+
+        # animated spray lines
+        offsets = [0, 8, -8, 16, -16]
+        lengths = [120, 135, 145, 130, 118]
+
+        for i, off in enumerate(offsets):
+            x1 = 180
+            y1 = 83 + off // 4
+            x2 = 180 + lengths[i] + (self.spray_phase % 20)
+            y2 = 83 + off
+            item = self.canvas.create_line(
+                x1, y1, x2, y2,
+                fill=ACCENT_2,
+                width=3
+            )
+            self.spray_items.append(item)
+
+        # droplets
+        droplet_x = 320 + (self.spray_phase * 7) % 80
+        for j in range(3):
+            d = self.canvas.create_oval(
+                droplet_x + j * 12,
+                60 + j * 18,
+                droplet_x + 8 + j * 12,
+                68 + j * 18,
+                fill="#8BE9FF",
+                outline=""
+            )
+            self.spray_items.append(d)
+
+        # alert text pulse
+        pulse_color = ACCENT if self.spray_phase % 2 == 0 else WHITE
+        self.canvas.create_text(
+            300, 25,
+            text="SPRAYING...",
+            fill=pulse_color,
+            font=("Arial", 18, "bold")
+        )
+
+        self.spray_phase += 1
+        self.watergun_job = self.root.after(180, self.animate_watergun)
+
+    def continue_after_watergun(self):
+        self.show_focus_screen()
+
+    def give_up(self):
+        self.stop_jobs()
+        self.clear_screen()
+
+        main = tk.Frame(self.root, bg=BG)
+        main.pack(fill="both", expand=True)
+
+        tk.Label(
+            main,
+            text="YOU GAVE UP",
+            bg=BG,
+            fg=RED,
+            font=("Arial", 24, "bold")
+        ).pack(pady=(55, 10))
+
+        tk.Label(
+            main,
+            text="Mission failed. Returning to menu.",
+            bg=BG,
+            fg=MUTED,
+            font=("Arial", 13)
+        ).pack(pady=6)
+
+        tk.Button(
+            main,
+            text="Back to Menu",
+            bg=BTN_DARK,
+            fg=WHITE,
+            relief="flat",
+            font=("Arial", 11, "bold"),
+            padx=16,
+            pady=8,
+            command=self.show_menu
+        ).pack(pady=20)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SmartDeskUI(root)
+    root.mainloop()
