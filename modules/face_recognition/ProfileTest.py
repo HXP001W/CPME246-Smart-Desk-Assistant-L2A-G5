@@ -1,18 +1,37 @@
 import pandas as pd
 from typing import List
+import os
 
 from deepface import DeepFace
 from testmain import startup
 
+# Get the configurable database path
+DB_PATH = os.getenv('CMPE246_DB_PATH', os.path.join(os.path.expanduser('~'), 'CMPE246_DB'))
 
 
 def identity_test():
-    img1 = r"C:\Users\lkkal\Stinky.jpg"
-    #img2 = r"C:\Users\lkkal\CMPE246 DB\Pic7.jpg"
-    #img3 = r"C:\Users\lkkal\CMPE246 DB\Pic9.jpg"
+    # Example test image - replace with actual image path
+    img1 = os.path.join(os.path.expanduser('~'), 'test_image.jpg')
+    
+    # Check if test image exists
+    if not os.path.exists(img1):
+        print(f"Test image not found at {img1}")
+        print(f"Please provide a test image or update the path in ProfileTest.py")
+        return
+    
+    # Check if database path exists
+    if not os.path.exists(DB_PATH):
+        print(f"Database path not found at {DB_PATH}")
+        print(f"Please create the database directory and add face images")
+        return
+    
+    #img2 = os.path.join(DB_PATH, 'Pic7.jpg')
+    #img3 = os.path.join(DB_PATH, 'Pic9.jpg')
     #result: dict = DeepFace.verify(img1_path = img1, img2_path = img2, enforce_detection = False)
     #print(f"Verification result: {result}")
-    dfs: List[pd.DataFrame] = DeepFace.find(img_path = img1, db_path = r"C:\Users\lkkal\CMPE246 DB", enforce_detection = False, refresh_database = True)
+    
+    print(f"Searching for face in database: {DB_PATH}")
+    dfs: List[pd.DataFrame] = DeepFace.find(img_path = img1, db_path = DB_PATH, enforce_detection = False, refresh_database = True)
                                 
     
     # print formatted results from the find call
