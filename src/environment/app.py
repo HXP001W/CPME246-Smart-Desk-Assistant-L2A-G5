@@ -146,4 +146,4 @@ def set_buzzer():
 if __name__ == '__main__':
     # 启动Web服务，监听所有网络接口，端口5000
     print("[UI] Web服务器已启动，浏览器访问：http://树莓派IP:5000")
-    app.run(host='0.0.0.0', port=5000, debug=False)p Updated：亮度|Brightness={self._brightness:.2f}, 颜色|Color=({actual_r}, {actual_g}, {actual_b})")
+    app.run(host='0.0.0.0', port=5000, debug=False)
