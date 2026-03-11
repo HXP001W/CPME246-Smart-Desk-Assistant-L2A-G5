@@ -1,33 +1,21 @@
-# hardware.py 硬件驱动层
-import RPi.GPIO as GPIO
-from gpiozero import LightSensor, DigitalInputDevice
+# hardware.py 硬件驱动层（全gpiozero版本，兼容所有树莓派系统，无冲突）
+from gpiozero import LED, LightSensor, DigitalInputDevice, Buzzer
 import time
 
 class HardwareController:
     def __init__(self):
-        # 使用物理引脚编号（BOARD），和接线表1:1对应
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setwarnings(False)
+        # ==================== 引脚定义（BCM编号，和你的接线1:1对应）====================
+        # RGB LED：物理引脚11=GPIO17，13=GPIO27，15=GPIO22
+        self.led_r = LED(17)
+        self.led_g = LED(27)
+        self.led_b = LED(22)
         
-        # ==================== 引脚定义 ====================
-        # RGB LED引脚
-        self.LED_R = 11
-        self.LED_G = 13
-        self.LED_B = 15
-        # 蜂鸣器引脚
-        self.BUZZER = 16
-        
-        # ==================== 硬件初始化 ====================
-        # LED设置为输出
-        GPIO.setup(self.LED_R, GPIO.OUT)
-        GPIO.setup(self.LED_G, GPIO.OUT)
-        GPIO.setup(self.LED_B, GPIO.OUT)
-        # 蜂鸣器设置为输出，初始关闭
-        GPIO.setup(self.BUZZER, GPIO.OUT, initial=GPIO.LOW)
+        # 有源蜂鸣器：物理引脚16=GPIO23
+        self.buzzer = Buzzer(23)
         
         # 传感器初始化
-        self.light_sensor = LightSensor(18)  # GPIO18对应物理引脚12
-        self.temp_sensor = DigitalInputDevice(4)  # GPIO4对应物理引脚7
+        self.light_sensor = LightSensor(18)  # 光敏电阻：物理引脚12=GPIO18
+        self.temp_sensor = DigitalInputDevice(4)  # NTC温敏电阻：物理引脚7=GPIO4
         
         # 初始状态：全部关闭
         self.turn_off_all_leds()
@@ -37,42 +25,51 @@ class HardwareController:
 
     # ==================== RGB LED控制 ====================
     def set_led_color(self, color):
-        """设置LED颜色：'red'/'green'/'blue'/'off'"""
+        """设置LED颜色：可选'red'/'green'/'blue'/'off'"""
         self.turn_off_all_leds()
         if color == 'red':
-            GPIO.output(self.LED_R, GPIO.HIGH)
+            self.led_r.on()
         elif color == 'green':
-            GPIO.output(self.LED_G, GPIO.HIGH)
+            self.led_g.on()
         elif color == 'blue':
-            GPIO.output(self.LED_B, GPIO.HIGH)
+            self.led_b.on()
         print(f"[硬件] LED设为: {color}")
 
     def turn_off_all_leds(self):
-        GPIO.output(self.LED_R, GPIO.LOW)
-        GPIO.output(self.LED_G, GPIO.LOW)
-        GPIO.output(self.LED_B, GPIO.LOW)
+        """关闭所有LED"""
+        self.led_r.off()
+        self.led_g.off()
+        self.led_b.off()
 
     # ==================== 蜂鸣器控制 ====================
     def turn_on_buzzer(self):
-        GPIO.output(self.BUZZER, GPIO.HIGH)
+        """开启蜂鸣器"""
+        self.buzzer.on()
         print("[硬件] 蜂鸣器开启")
 
     def turn_off_buzzer(self):
-        GPIO.output(self.BUZZER, GPIO.LOW)
+        """关闭蜂鸣器"""
+        self.buzzer.off()
         print("[硬件] 蜂鸣器关闭")
 
     # ==================== 传感器数据读取 ====================
     def get_light_level(self):
-        """获取光照强度：0-1，越亮越大"""
+        """获取光照强度：返回0-1的数值，越亮数值越大"""
         return self.light_sensor.value
 
     def is_temp_extreme(self):
-        """获取温度状态：True=温度异常（过冷/过热），False=正常"""
+        """获取温度状态：True=温度异常（过冷/过热），False=温度正常"""
         return self.temp_sensor.value
 
     # ==================== 资源释放 ====================
     def cleanup(self):
+        """程序退出时释放所有硬件资源"""
         self.turn_off_all_leds()
         self.turn_off_buzzer()
-        GPIO.cleanup()
+        self.led_r.close()
+        self.led_g.close()
+        self.led_b.close()
+        self.buzzer.close()
+        self.light_sensor.close()
+        self.temp_sensor.close()
         print("[硬件] 资源已释放")
