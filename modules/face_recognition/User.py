@@ -9,7 +9,7 @@ class User:
         self.reportData = []
     
     def start(self):
-        print("Welcome,", self.name, "!")
+        print("Welcome,", self.name + "!")
         self.options()
 
 
