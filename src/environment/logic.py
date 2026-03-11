@@ -1,94 +1,104 @@
-# logic.py 核心业务逻辑
+# logic.py: Core Business Logic for Smart Desk Assistant
+# Full English version, handles Auto and Manual operation modes
 from hardware import HardwareController
 import time
+import threading
 
 class DeskController:
     def __init__(self):
+        # Initialize hardware controller
         self.hw = HardwareController()
         
-        # 系统模式
-        self.mode = 'auto'  # 'auto' 或 'manual'
+        # System operation mode: 'auto' (default) or 'manual'
+        self.mode = 'auto'
         
-        # 自动模式阈值
-        self.light_high = 0.7   # 光照>0.7=太亮
-        self.light_low = 0.3    # 光照<0.3=太暗
+        # Auto Mode Thresholds (adjust these values for your environment)
+        self.light_threshold_high = 0.7   # Light > 0.7 = Too Bright
+        self.light_threshold_low = 0.3    # Light < 0.3 = Too Dark
         
-        # 手动模式状态
-        self.manual_led = 'off'
-        self.manual_buzzer_on = False
+        # Manual Mode State
+        self.manual_led_color = 'off'
+        self.manual_buzzer_active = False
         
-        # 运行状态
+        # Runtime control
         self._running = False
+        self._control_thread = None
 
     def set_mode(self, mode):
-        """切换模式"""
+        """Switch system operation mode between 'auto' and 'manual'"""
+        if mode not in ['auto', 'manual']:
+            print(f"[Logic] Invalid mode: {mode}, must be 'auto' or 'manual'")
+            return
         self.mode = mode
-        print(f"[逻辑] 模式切换为: {mode}")
+        print(f"[Logic] System mode switched to: {mode}")
 
     def set_manual_led(self, color):
-        """手动设置LED"""
-        self.manual_led = color
+        """Set LED color (only active in Manual Mode)"""
+        self.manual_led_color = color
         if self.mode == 'manual':
             self.hw.set_led_color(color)
 
-    def set_manual_buzzer(self, on):
-        """手动开关蜂鸣器"""
-        self.manual_buzzer_on = on
+    def set_manual_buzzer(self, active):
+        """Control buzzer on/off (only active in Manual Mode)"""
+        self.manual_buzzer_active = active
         if self.mode == 'manual':
-            self.hw.turn_on_buzzer() if on else self.hw.turn_off_buzzer()
+            if active:
+                self.hw.turn_on_buzzer()
+            else:
+                self.hw.turn_off_buzzer()
 
-    def auto_control(self):
-        """
-        自动控制逻辑：
-        1. 亮度控制LED：太暗→蓝，正常→绿，太亮→红
-        2. 温度控制蜂鸣器：异常→响，正常→关
-        """
-        if self.mode != 'auto':
-            return
+    def auto_control_loop(self):
+        """Main loop for Auto Mode: auto-control LED and buzzer from sensor data"""
+        while self._running:
+            if self.mode == 'auto':
+                # Read real-time sensor data
+                current_light = self.hw.get_light_level()
+                temp_is_extreme = self.hw.is_temperature_extreme()
 
-        # 读取传感器
-        light = self.hw.get_light_level()
-        temp_extreme = self.hw.is_temp_extreme()
+                # Control LED based on ambient light level
+                if current_light >= self.light_threshold_high:
+                    self.hw.set_led_color('red')
+                elif current_light <= self.light_threshold_low:
+                    self.hw.set_led_color('blue')
+                else:
+                    self.hw.set_led_color('green')
 
-        # 1. 亮度控制LED
-        if light >= self.light_high:
-            self.hw.set_led_color('red')
-        elif light <= self.light_low:
-            self.hw.set_led_color('blue')
-        else:
-            self.hw.set_led_color('green')
+                # Control buzzer based on temperature status
+                if temp_is_extreme:
+                    self.hw.turn_on_buzzer()
+                else:
+                    self.hw.turn_off_buzzer()
 
-        # 2. 温度控制蜂鸣器
-        if temp_extreme:
-            self.hw.turn_on_buzzer()
-        else:
-            self.hw.turn_off_buzzer()
+                # Print real-time status for debugging
+                print(f"[Logic] Auto Mode | Light Level: {current_light:.2f} | Temperature Abnormal: {temp_is_extreme}")
+            
+            # 1 second delay between sensor checks
+            time.sleep(1)
 
-        print(f"[逻辑] 自动 | 光照: {light:.2f} | 温度异常: {temp_extreme}")
-
-    def get_status(self):
-        """获取系统状态供UI显示"""
+    def get_system_status(self):
+        """Get current system status for Web UI display"""
         return {
             'mode': self.mode,
             'light_level': round(self.hw.get_light_level(), 2),
-            'temp_extreme': self.hw.is_temp_extreme(),
-            'manual_led': self.manual_led,
-            'manual_buzzer_on': self.manual_buzzer_on
+            'temp_extreme': self.hw.is_temperature_extreme(),
+            'manual_led_color': self.manual_led_color,
+            'manual_buzzer_active': self.manual_buzzer_active
         }
 
-    def run(self):
-        """启动主循环"""
+    def start(self):
+        """Start the system control loop in a background thread"""
+        if self._running:
+            print("[Logic] System is already running")
+            return
         self._running = True
-        print("[逻辑] 桌面助手已启动")
-        try:
-            while self._running:
-                if self.mode == 'auto':
-                    self.auto_control()
-                time.sleep(1)
-        except KeyboardInterrupt:
-            self.stop()
+        self._control_thread = threading.Thread(target=self.auto_control_loop, daemon=True)
+        self._control_thread.start()
+        print("[Logic] Smart Desk Assistant started successfully")
 
     def stop(self):
+        """Stop the system and safely release all resources"""
         self._running = False
+        if self._control_thread:
+            self._control_thread.join()
         self.hw.cleanup()
-        print("[逻辑] 桌面助手已停止")
+        print("[Logic] Smart Desk Assistant stopped successfully")
