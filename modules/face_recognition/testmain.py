@@ -58,6 +58,34 @@ def save_users():
     except Exception as e:
         print(f"Error saving user data: {e}")
 
+def delete_profile(user):
+    """Delete a user profile, remove from registered users, and delete their picture"""
+    if user.userID == -1:
+        print("Cannot delete an empty profile.")
+        return False
+    
+    try:
+        # Delete the user's photo file
+        if user.userID and os.path.exists(user.userID):
+            os.remove(user.userID)
+            print(f"✓ Deleted photo: {user.userID}")
+        
+        # Find the user in the list and replace with an empty user
+        for i, u in enumerate(userList):
+            if u.userID == user.userID:
+                userList[i] = User.User(userID=-1)  # Replace with empty slot
+                print(f"✓ Profile for {user.name} has been deleted")
+                break
+        
+        # Save the updated user list
+        save_users()
+        print("✓ Profile deletion complete. Empty slot created.")
+        return True
+        
+    except Exception as e:
+        print(f"Error deleting profile: {e}")
+        return False
+
 def capture_user_photo(user_name):
     """Capture a photo of the user using the front camera and save to database"""
     print(f"\nPreparing to take your photo, {user_name}...")
