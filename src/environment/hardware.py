@@ -1,27 +1,22 @@
 # hardware.py: Hardware Driver for Smart Desk Assistant
-# Full English version, optimized for Raspberry Pi GPIO compatibility
+# Full English, No Chinese, GPIO pins updated to avoid conflicts
 from gpiozero import LED, LightSensor, DigitalInputDevice, Buzzer
 import atexit
 
 class HardwareController:
     def __init__(self):
         # ==================== PIN DEFINITIONS (BCM NUMBERING) ====================
-        # RGB LED Pins (matches your physical wiring):
-        # Physical Pin 11 = BCM GPIO17 (Red Channel)
-        # Physical Pin 13 = BCM GPIO27 (Green Channel)
-        # Physical Pin 15 = BCM GPIO22 (Blue Channel)
-        self.led_red = LED(17)
-        self.led_green = LED(27)
-        self.led_blue = LED(22)
+        # RGB LED Pins
+        self.led_red = LED(5)    # Physical Pin 29
+        self.led_green = LED(6)  # Physical Pin 31
+        self.led_blue = LED(13)  # Physical Pin 33
         
-        # Active Buzzer Pin: Physical Pin 16 = BCM GPIO23
-        self.buzzer = Buzzer(23)
+        # Active Buzzer Pin
+        self.buzzer = Buzzer(19) # Physical Pin 35
         
         # Sensor Pins
-        # Photoresistor (Light Sensor): Physical Pin 12 = BCM GPIO18
-        self.light_sensor = LightSensor(18)
-        # NTC Temperature Sensor: Physical Pin 7 = BCM GPIO4
-        self.temp_sensor = DigitalInputDevice(4)
+        self.light_sensor = LightSensor(26) # Physical Pin 37
+        self.temp_sensor = DigitalInputDevice(12) # Physical Pin 32
         
         # Auto-cleanup GPIO resources when program exits
         atexit.register(self.cleanup)
