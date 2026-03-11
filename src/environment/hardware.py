@@ -1,3 +1,33 @@
+# hardware.py: Add this at the VERY TOP to force-release pins
+import os
+import atexit
+from gpiozero import LED, LightSensor, DigitalInputDevice, Buzzer
+
+# Force-clean any leftover GPIO exports from previous crashes
+def force_cleanup_gpio():
+    try:
+        # Try to unexport common GPIO pins we use
+        for pin in [17, 27, 22, 23, 18, 4]:
+            if os.path.exists(f"/sys/class/gpio/gpio{pin}"):
+                with open("/sys/class/gpio/unexport", "w") as f:
+                    f.write(str(pin))
+    except:
+        pass
+
+# Run force-cleanup BEFORE initializing any hardware
+force_cleanup_gpio()
+
+class HardwareController:
+    def __init__(self):
+        # YOUR ORIGINAL PIN DEFINITIONS HERE (GPIO17, 27, 22, etc.)
+        self.led_red = LED(17)
+        self.led_green = LED(27)
+        self.led_blue = LED(22)
+        self.buzzer = Buzzer(23)
+        self.light_sensor = LightSensor(18)
+        self.temp_sensor = DigitalInputDevice(4)
+        
+        # Rest of your original code...
 # hardware.py: Hardware Driver for Smart Desk Assistant
 # Full English, No Chinese, GPIO pins updated to avoid conflicts
 from gpiozero import LED, LightSensor, DigitalInputDevice, Buzzer
