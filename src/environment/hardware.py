@@ -1,75 +1,93 @@
-# hardware.py 硬件驱动层（全gpiozero版本，兼容所有树莓派系统，无冲突）
+# hardware.py: Hardware Driver for Smart Desk Assistant
+# Full English version, optimized for Raspberry Pi GPIO compatibility
 from gpiozero import LED, LightSensor, DigitalInputDevice, Buzzer
-import time
+import atexit
 
 class HardwareController:
     def __init__(self):
-        # ==================== 引脚定义（BCM编号，和你的接线1:1对应）====================
-        # RGB LED：物理引脚11=GPIO17，13=GPIO27，15=GPIO22
-        self.led_r = LED(17)
-        self.led_g = LED(27)
-        self.led_b = LED(22)
+        # ==================== PIN DEFINITIONS (BCM NUMBERING) ====================
+        # RGB LED Pins (matches your physical wiring):
+        # Physical Pin 11 = BCM GPIO17 (Red Channel)
+        # Physical Pin 13 = BCM GPIO27 (Green Channel)
+        # Physical Pin 15 = BCM GPIO22 (Blue Channel)
+        self.led_red = LED(17)
+        self.led_green = LED(27)
+        self.led_blue = LED(22)
         
-        # 有源蜂鸣器：物理引脚16=GPIO23
+        # Active Buzzer Pin: Physical Pin 16 = BCM GPIO23
         self.buzzer = Buzzer(23)
         
-        # 传感器初始化
-        self.light_sensor = LightSensor(18)  # 光敏电阻：物理引脚12=GPIO18
-        self.temp_sensor = DigitalInputDevice(4)  # NTC温敏电阻：物理引脚7=GPIO4
+        # Sensor Pins
+        # Photoresistor (Light Sensor): Physical Pin 12 = BCM GPIO18
+        self.light_sensor = LightSensor(18)
+        # NTC Temperature Sensor: Physical Pin 7 = BCM GPIO4
+        self.temp_sensor = DigitalInputDevice(4)
         
-        # 初始状态：全部关闭
+        # Auto-cleanup GPIO resources when program exits
+        atexit.register(self.cleanup)
+        
+        # Initialize all devices to OFF state
         self.turn_off_all_leds()
         self.turn_off_buzzer()
         
-        print("[硬件] 初始化完成")
+        print("[Hardware] Initialization completed successfully")
 
-    # ==================== RGB LED控制 ====================
+    # ==================== RGB LED Control Functions ====================
     def set_led_color(self, color):
-        """设置LED颜色：可选'red'/'green'/'blue'/'off'"""
+        """
+        Set the color of the RGB LED
+        Valid options: 'red', 'green', 'blue', 'off'
+        """
         self.turn_off_all_leds()
         if color == 'red':
-            self.led_r.on()
+            self.led_red.on()
         elif color == 'green':
-            self.led_g.on()
+            self.led_green.on()
         elif color == 'blue':
-            self.led_b.on()
-        print(f"[硬件] LED设为: {color}")
+            self.led_blue.on()
+        print(f"[Hardware] LED set to: {color}")
 
     def turn_off_all_leds(self):
-        """关闭所有LED"""
-        self.led_r.off()
-        self.led_g.off()
-        self.led_b.off()
+        """Turn off all RGB LED channels"""
+        self.led_red.off()
+        self.led_green.off()
+        self.led_blue.off()
 
-    # ==================== 蜂鸣器控制 ====================
+    # ==================== Buzzer Control Functions ====================
     def turn_on_buzzer(self):
-        """开启蜂鸣器"""
+        """Activate the active buzzer"""
         self.buzzer.on()
-        print("[硬件] 蜂鸣器开启")
+        print("[Hardware] Buzzer activated")
 
     def turn_off_buzzer(self):
-        """关闭蜂鸣器"""
+        """Deactivate the active buzzer"""
         self.buzzer.off()
-        print("[硬件] 蜂鸣器关闭")
+        print("[Hardware] Buzzer deactivated")
 
-    # ==================== 传感器数据读取 ====================
+    # ==================== Sensor Data Reading Functions ====================
     def get_light_level(self):
-        """获取光照强度：返回0-1的数值，越亮数值越大"""
+        """
+        Get current ambient light level
+        Returns: float between 0 (total darkness) and 1 (maximum brightness)
+        """
         return self.light_sensor.value
 
-    def is_temp_extreme(self):
-        """获取温度状态：True=温度异常（过冷/过热），False=温度正常"""
+    def is_temperature_extreme(self):
+        """
+        Check if temperature is out of normal range
+        Returns: True = Too hot/too cold; False = Normal temperature
+        """
         return self.temp_sensor.value
 
-    # ==================== 资源释放 ====================
+    # ==================== Resource Cleanup ====================
     def cleanup(self):
-        """程序退出时释放所有硬件资源"""
+        """Safely release all GPIO resources when program exits"""
         self.turn_off_all_leds()
         self.turn_off_buzzer()
-        self.led_r.close()
-        self.led_g.close()
-        self.led_b.close()
+        self.led_red.close()
+        self.led_green.close()
+        self.led_blue.close()
         self.buzzer.close()
         self.light_sensor.close()
         self.temp_sensor.close()
-        print("[硬件] 资源已释放")
+        print("[Hardware] All GPIO resources released successfully")
