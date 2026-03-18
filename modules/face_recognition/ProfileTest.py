@@ -50,7 +50,7 @@ def identity_test():
     
     print("\nStarting camera face recognition...")
     print("Press 'q' to quit the camera stream")
-    print("Will automatically continue as guest after 30 seconds if no face detected\n")
+    print("30-second timeout starts once facial recognition is active\n")
 
     # Start loading DeepFace in the background immediately
     threading.Thread(target=_load_deepface, daemon=True).start()
@@ -64,7 +64,7 @@ def identity_test():
             print("Error: No camera available")
             return
     
-    start_time = time.time()
+    start_time = None
     timeout = 30  # 30 seconds timeout
     last_check_time = 0
     check_interval = 2  # Check every 2 seconds
@@ -84,10 +84,12 @@ def identity_test():
             if _deepface_ready.is_set():
                 status_text = "Facial recognition ACTIVE"
                 status_color = (0, 255, 0)
+                if start_time is None:
+                    start_time = time.time()
             
             # Check if timeout reached
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= timeout:
+            elapsed_time = 0 if start_time is None else (time.time() - start_time)
+            if start_time is not None and elapsed_time >= timeout:
                 print(f"\n⏱ Timeout reached ({timeout} seconds)")
                 print("No registered user detected. Continuing as guest...")
                 cap.release()
@@ -157,8 +159,12 @@ def identity_test():
             # Draw status and timeout countdown overlay for user feedback
             cv2.putText(frame, status_text, (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
-            countdown = max(0, int(timeout - elapsed_time))
-            cv2.putText(frame, f"Timeout: {countdown}s", (10, 60),
+            if start_time is None:
+                timeout_text = "Timeout: waiting for activation"
+            else:
+                countdown = max(0, int(timeout - elapsed_time))
+                timeout_text = f"Timeout: {countdown}s"
+            cv2.putText(frame, timeout_text, (10, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             cv2.putText(frame, "Press q to quit", (10, 90),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
