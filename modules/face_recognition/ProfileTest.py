@@ -1,9 +1,8 @@
-import pandas as pd
-from typing import List
 import os
 import cv2
 import time
 import threading
+import gc
 
 from testmain import startup
 
@@ -63,6 +62,11 @@ def identity_test():
         if not cap.isOpened():
             print("Error: No camera available")
             return
+
+    # Keep stream memory footprint low
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     
     start_time = None
     timeout = 30  # 30 seconds timeout
@@ -70,6 +74,7 @@ def identity_test():
     check_interval = 2  # Check every 2 seconds
     frame_count = 0
     process_every_n_frames = 5  # Process every 5th frame for performance
+    analysis_count = 0
     
     try:
         while True:
@@ -112,14 +117,19 @@ def identity_test():
                     status_text = "Facial recognition ACTIVE - analyzing..."
                     status_color = (0, 255, 0)
 
-                    # Save current frame temporarily
-                    temp_frame_path = "temp_frame.jpg"
-                    cv2.imwrite(temp_frame_path, frame)
+                    # Downscale for lower memory use during recognition
+                    analysis_frame = cv2.resize(
+                        frame,
+                        (0, 0),
+                        fx=0.5,
+                        fy=0.5,
+                        interpolation=cv2.INTER_AREA
+                    )
 
                     try:
                         # Try to find matching face in database
                         dfs = _deepface_module.find(
-                            img_path=temp_frame_path,
+                            img_path=analysis_frame,
                             db_path=DB_PATH,
                             enforce_detection=False,
                             silent=True
@@ -141,8 +151,6 @@ def identity_test():
                                 # Clean up
                                 cap.release()
                                 cv2.destroyAllWindows()
-                                if os.path.exists(temp_frame_path):
-                                    os.remove(temp_frame_path)
 
                                 # Call startup with registered user
                                 startup(registeredUser=True, userID=matched_identity)
@@ -151,10 +159,18 @@ def identity_test():
                     except Exception as e:
                         # Silently handle detection errors (no face in frame, etc.)
                         pass
+                    finally:
+                        # Release recognition intermediates promptly
+                        analysis_count += 1
+                        if 'dfs' in locals():
+                            del dfs
+                        if 'result_df' in locals():
+                            del result_df
+                        del analysis_frame
 
-                    # Clean up temp file
-                    if os.path.exists(temp_frame_path):
-                        os.remove(temp_frame_path)
+                        # Periodic garbage collection helps long-running streams
+                        if analysis_count % 10 == 0:
+                            gc.collect()
 
             # Draw status and timeout countdown overlay for user feedback
             cv2.putText(frame, status_text, (10, 30),
@@ -188,6 +204,5 @@ def identity_test():
     finally:
         cap.release()
         cv2.destroyAllWindows()
-        if os.path.exists("temp_frame.jpg"):
-            os.remove("temp_frame.jpg")
+        gc.collect()
 
