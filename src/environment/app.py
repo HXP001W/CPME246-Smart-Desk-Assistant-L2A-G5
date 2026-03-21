@@ -1,5 +1,5 @@
-# 桌面环境灯光检测系统 - 主程序
-# Web UI + 自动/手动双模式
+# Desktop Environmental Light System - Main Program
+# Web UI + Auto/Manual Dual Mode
 from flask import Flask, render_template_string, request, jsonify
 import board
 import neopixel
@@ -7,28 +7,28 @@ from gpiozero import LightSensor
 import threading
 import time
 
-# ==================== 硬件配置（和接线100%匹配） ====================
-# 灯带配置
-LED_PIN = board.D18    # GPIO18，对应树莓派12号物理引脚
-NUM_LEDS = 10          # 假设你剪了10个灯，没剪的话改成60
-MAX_BRIGHTNESS = 0.7   # 最大亮度70%，安全够用
+# ==================== HARDWARE CONFIGURATION (100% MATCHES WIRING) ====================
+# LED Strip Configuration
+LED_PIN = board.D18    # GPIO18, corresponds to Raspberry Pi Physical Pin 12
+NUM_LEDS = 10          # Change to 60 if you didn't cut the strip
+MAX_BRIGHTNESS = 0.7   # Max brightness 70%, safe and sufficient
 
-# 光敏配置
-LIGHT_SENSOR_PIN = 17  # GPIO17，对应树莓派11号物理引脚
+# Light Sensor Configuration
+LIGHT_SENSOR_PIN = 17  # GPIO17, corresponds to Raspberry Pi Physical Pin 11
 
-# ==================== 全局变量 ====================
+# ==================== GLOBAL VARIABLES ====================
 app = Flask(__name__)
 pixels = None
 light_sensor = None
-mode = "auto"  # "auto" 或 "manual"
-manual_brightness = 0.5  # 手动模式亮度（0-1）
+mode = "auto"  # "auto" or "manual"
+manual_brightness = 0.5  # Manual mode brightness (0-1)
 running = True
 
-# ==================== 硬件初始化 ====================
+# ==================== HARDWARE INITIALIZATION ====================
 def init_hardware():
     global pixels, light_sensor
     
-    # 初始化灯带
+    # Initialize LED strip
     pixels = neopixel.NeoPixel(
         LED_PIN,
         NUM_LEDS,
@@ -39,16 +39,16 @@ def init_hardware():
     pixels.fill((0, 0, 0))
     pixels.show()
     
-    # 初始化光敏
+    # Initialize light sensor
     light_sensor = LightSensor(LIGHT_SENSOR_PIN)
 
-# ==================== 灯带控制函数 ====================
+# ==================== LED CONTROL FUNCTION ====================
 def set_led_brightness(brightness):
-    """设置灯带亮度（0-1）"""
+    """Set LED strip brightness (0-1)"""
     brightness = max(0.0, min(1.0, brightness))
     safe_brightness = brightness * MAX_BRIGHTNESS
     
-    # 暖白色（GRB格式）
+    # Warm white color (GRB format for WS2812B)
     red = int(255 * brightness)
     green = int(255 * brightness)
     blue = int(255 * brightness)
@@ -57,12 +57,12 @@ def set_led_brightness(brightness):
     pixels.fill((green, red, blue))
     pixels.show()
 
-# ==================== 自动模式线程 ====================
+# ==================== AUTO MODE THREAD ====================
 def auto_mode_thread():
     global mode, running
     while running:
         if mode == "auto":
-            # 读取光敏数值，环境越暗，灯带越亮
+            # Read light sensor: darker environment = brighter LED
             light_level = light_sensor.value
             led_brightness = 1.0 - light_level
             set_led_brightness(led_brightness)
@@ -70,12 +70,12 @@ def auto_mode_thread():
         else:
             time.sleep(0.1)
 
-# ==================== Web UI 界面 ====================
+# ==================== WEB UI INTERFACE ====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>桌面环境灯光系统</title>
+    <title>Desktop Environmental Light System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -141,21 +141,21 @@ HTML_TEMPLATE = """
 </head>
 <body>
     <div class="container">
-        <h1>💡 桌面环境灯光系统</h1>
+        <h1>Desktop Environmental Light System</h1>
         
         <div class="mode-switch">
-            <button id="auto-btn" class="mode-btn active" onclick="setMode('auto')">自动模式</button>
-            <button id="manual-btn" class="mode-btn" onclick="setMode('manual')">手动模式</button>
+            <button id="auto-btn" class="mode-btn active" onclick="setMode('auto')">Auto Mode</button>
+            <button id="manual-btn" class="mode-btn" onclick="setMode('manual')">Manual Mode</button>
         </div>
         
         <div id="slider-container" class="slider-container">
-            <label for="brightness-slider">手动亮度调节：</label>
+            <label for="brightness-slider">Manual Brightness Control:</label>
             <input type="range" id="brightness-slider" class="slider" min="0" max="100" value="50" oninput="setManualBrightness(this.value)">
-            <p>当前亮度：<span id="brightness-value">50</span>%</p>
+            <p>Current Brightness: <span id="brightness-value">50</span>%</p>
         </div>
         
         <div id="status" class="status">
-            正在加载...
+            Loading...
         </div>
     </div>
 
@@ -165,14 +165,14 @@ HTML_TEMPLATE = """
         function setMode(mode) {
             currentMode = mode;
             
-            // 更新按钮样式
+            // Update button styles
             document.getElementById('auto-btn').classList.toggle('active', mode === 'auto');
             document.getElementById('manual-btn').classList.toggle('active', mode === 'manual');
             
-            // 显示/隐藏滑块
+            // Show/hide slider
             document.getElementById('slider-container').classList.toggle('active', mode === 'manual');
             
-            // 发送请求到后端
+            // Send request to backend
             fetch('/set_mode?mode=' + mode);
         }
         
@@ -181,22 +181,22 @@ HTML_TEMPLATE = """
             fetch('/set_manual_brightness?brightness=' + (value / 100));
         }
         
-        // 定期更新状态
+        // Periodically update status
         function updateStatus() {
             fetch('/get_status')
                 .then(response => response.json())
                 .then(data => {
                     let statusText = '';
                     if (data.mode === 'auto') {
-                        statusText = '🤖 自动模式 | 环境亮度：' + (data.light_level * 100).toFixed(0) + '% | 灯带亮度：' + (data.led_brightness * 100).toFixed(0) + '%';
+                        statusText = 'Auto Mode | Ambient Light: ' + (data.light_level * 100).toFixed(0) + '% | LED Brightness: ' + (data.led_brightness * 100).toFixed(0) + '%';
                     } else {
-                        statusText = '✋ 手动模式 | 灯带亮度：' + (data.led_brightness * 100).toFixed(0) + '%';
+                        statusText = 'Manual Mode | LED Brightness: ' + (data.led_brightness * 100).toFixed(0) + '%';
                     }
                     document.getElementById('status').textContent = statusText;
                 });
         }
         
-        // 每500ms更新一次状态
+        // Update status every 500ms
         setInterval(updateStatus, 500);
         updateStatus();
     </script>
@@ -204,7 +204,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# ==================== Web 路由 ====================
+# ==================== WEB ROUTES ====================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -245,29 +245,29 @@ def get_status():
         'led_brightness': led_brightness
     })
 
-# ==================== 主程序入口 ====================
+# ==================== MAIN PROGRAM ENTRY ====================
 if __name__ == '__main__':
     try:
-        print("=== 桌面环境灯光系统启动中... ===")
+        print("=== Desktop Environmental Light System Starting... ===")
         init_hardware()
         
-        # 启动自动模式线程
+        # Start auto mode thread
         auto_thread = threading.Thread(target=auto_mode_thread)
         auto_thread.daemon = True
         auto_thread.start()
         
-        print("✅ 系统启动成功！")
-        print("📱 在浏览器中访问：http://raspberrypi.local:5000")
-        print("按 Ctrl+C 停止系统\n")
+        print("System started successfully!")
+        print("Access the UI in your browser at: http://raspberrypi.local:5000")
+        print("Press Ctrl+C to stop the system\n")
         
-        # 启动Flask Web服务器
+        # Start Flask web server
         app.run(host='0.0.0.0', port=5000, debug=False)
         
     except KeyboardInterrupt:
-        print("\n\n正在停止系统...")
+        print("\n\nStopping system...")
         running = False
         if pixels:
             pixels.fill((0, 0, 0))
             pixels.show()
             pixels.deinit()
-        print("✅ 系统已安全停止")
+        print("System stopped safely")
