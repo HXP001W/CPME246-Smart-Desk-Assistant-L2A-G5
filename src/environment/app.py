@@ -1,155 +1,125 @@
-# 4-LED Environmental Light Control System - Bookworm Perfect Version
+# 4-LED High-Sensitivity Light Control System
 from flask import Flask, render_template_string, request, jsonify
-from gpiozero import LED, Device
+from gpiozero import LED
 import threading
 import time
 import atexit
 
-# ==================== GPIO BACKEND SETUP (Bookworm Compatible) ====================
-# Try RPi.GPIO first, fall back to native if not available
-try:
-    from gpiozero.pins.rpigpio import RPiGPIOFactory
-    Device.pin_factory = RPiGPIOFactory()
-    print("Using RPi.GPIO backend (stable)")
-except:
-    print("RPi.GPIO not found, using native backend")
-    pass
+# ==================== 灵敏度调节参数（直接改这里就行！） ====================
+# 灵敏度增益：数值越大，越敏感（推荐1.0-3.0，默认2.0）
+SENSITIVITY_GAIN = 2.0
+# 最大亮度阈值：超过这个亮度，灯全灭（默认0.8 = 80%亮度）
+MAX_BRIGHTNESS_THRESHOLD = 0.8
+# 最小亮度阈值：低于这个亮度，灯全亮（默认0.1 = 10%亮度）
+MIN_BRIGHTNESS_THRESHOLD = 0.1
+# 滤波采样次数：数值越大，读数越稳，反应稍慢（默认5次）
+FILTER_SAMPLES = 5
 
-# ==================== HARDWARE CONFIGURATION ====================
+# ==================== HARDWARE CONFIG ====================
 LED_PINS = [22, 23, 24, 25]
-LIGHT_SENSOR_PIN = 27  # Physical Pin 13
+leds = [LED(pin, initial_value=False) for pin in LED_PINS]
+LIGHT_PIN = 27  # Physical Pin 13
 
 # ==================== GLOBAL VARIABLES ====================
 app = Flask(__name__)
 system_mode = "auto"
-manual_led_level = 0
-system_running = True
-
-# Hardware objects
-leds = []
-light_sensor_pin = None
-light_sensor_available = False
-
-# ==================== SIMPLE LIGHT SENSOR READER (No Interrupts!) ====================
-# We use a simple analog-like reading via charge time, no edge detection
-def read_light_level():
-    """
-    Simple light sensor reading without any interrupts.
-    Returns 0.0 (full dark) to 1.0 (full bright).
-    """
-    if not light_sensor_available:
-        return 0.5
-    
-    try:
-        import RPi.GPIO as GPIO
-        # Use direct RPi.GPIO for simple reading, no gpiozero LightSensor
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(LIGHT_SENSOR_PIN, GPIO.OUT)
-        GPIO.output(LIGHT_SENSOR_PIN, GPIO.LOW)
-        time.sleep(0.1)
-        
-        GPIO.setup(LIGHT_SENSOR_PIN, GPIO.IN)
-        start_time = time.time()
-        # Wait for pin to go high (charge time)
-        while GPIO.input(LIGHT_SENSOR_PIN) == GPIO.LOW and (time.time() - start_time) < 0.1:
-            pass
-        charge_time = time.time() - start_time
-        
-        # Clean up
-        GPIO.setup(LIGHT_SENSOR_PIN, GPIO.IN)
-        
-        # Map charge time to light level (longer charge = darker)
-        light_level = 1.0 - min(1.0, charge_time * 10)
-        return max(0.0, min(1.0, light_level))
-    except:
-        return 0.5
-
-# ==================== HARDWARE SETUP ====================
-def setup_hardware():
-    global leds, light_sensor_available
-
-    # Clean up existing LEDs
-    for led in leds:
-        try:
-            led.off()
-            led.close()
-        except Exception:
-            pass
-    leds.clear()
-
-    # Initialize LEDs first (very stable)
-    try:
-        leds = [LED(pin, initial_value=False) for pin in LED_PINS]
-        print(f"✅ LEDs initialized on GPIO {LED_PINS}")
-    except Exception as e:
-        raise RuntimeError(f"❌ LED initialization failed: {str(e)}")
- 
-    # Check light sensor wiring (print reminder)
-    print("\n📋 Check light sensor wiring:")
-    print("  - Light sensor pin 1 -> 3.3V (Physical Pin 1)")
-    print("  - Light sensor pin 2 -> GPIO27 (Physical Pin 13) + 10kΩ resistor")
-    print("  - 10kΩ resistor -> GND (Physical Pin 9)")
-    
-    # Mark light sensor as available (we'll use our simple reader)
-    light_sensor_available = True
-    print("✅ Light sensor initialized (polling mode, no interrupts)")
+manual_level = 0
+running = True
+# 滤波用的历史读数缓存
+light_readings_history = []
 
 # ==================== SAFE SHUTDOWN ====================
 def safe_shutdown():
-    global system_running, leds
-    print("\n=== SAFE SHUTDOWN STARTED ===")
-    system_running = False
+    global running
+    print("\nShutting down system safely...")
+    running = False
+    for led in leds:
+        led.off()
+        led.close()
+    print("All LEDs turned off and GPIO released")
 
-    # Release all LEDs
-    for idx, led in enumerate(leds):
-        try:
-            led.off()
-            led.close()
-            print(f"LED {idx+1} (GPIO{LED_PINS[idx]}) released")
-        except Exception as e:
-            print(f"Failed to release LED {idx+1}: {str(e)}")
-    leds.clear()
-
-    # Clean up GPIO
-    try:
-        import RPi.GPIO as GPIO
-        GPIO.cleanup()
-        print("GPIO cleaned up")
-    except:
-        pass
-
-    print("=== SAFE SHUTDOWN COMPLETE ===")
-
-# Register shutdown
 atexit.register(safe_shutdown)
 
-# ==================== LED CONTROL ====================
-def set_led_level(level):
+# ==================== HIGH-SENSITIVITY LIGHT READING WITH FILTER ====================
+def read_light_single():
+    """单次光敏读数，优化采样逻辑"""
+    try:
+        import RPi.GPIO as GPIO
+        GPIO.setmode(GPIO.BCM)
+        # 放电清零
+        GPIO.setup(LIGHT_PIN, GPIO.OUT)
+        GPIO.output(LIGHT_PIN, GPIO.LOW)
+        time.sleep(0.01)
+        
+        # 开始充电计时
+        GPIO.setup(LIGHT_PIN, GPIO.IN)
+        start_time = time.time()
+        # 等待引脚电平拉高，超时0.1秒
+        while GPIO.input(LIGHT_PIN) == GPIO.LOW and (time.time() - start_time) < 0.1:
+            pass
+        charge_time = time.time() - start_time
+        
+        # 清理GPIO
+        GPIO.cleanup(LIGHT_PIN)
+        
+        # 转换为亮度值：0=全黑，1=全亮
+        raw_brightness = 1.0 - min(1.0, charge_time * 10)
+        return max(0.0, min(1.0, raw_brightness))
+    except Exception as e:
+        print(f"Light read error: {str(e)}")
+        return 0.5
+
+def read_light_filtered():
+    """带滑动平均滤波的亮度读数，解决跳变问题"""
+    global light_readings_history
+    # 单次采样
+    current_reading = read_light_single()
+    # 加入历史缓存
+    light_readings_history.append(current_reading)
+    # 限制缓存长度
+    if len(light_readings_history) > FILTER_SAMPLES:
+        light_readings_history.pop(0)
+    # 取平均值
+    average_reading = sum(light_readings_history) / len(light_readings_history)
+    return average_reading
+
+# ==================== LED CONTROL WITH SENSITIVITY MAPPING ====================
+def map_brightness_to_leds(brightness):
+    """把亮度值映射到LED数量，放大暗光灵敏度"""
+    # 1. 先把亮度限制在阈值范围内
+    if brightness >= MAX_BRIGHTNESS_THRESHOLD:
+        # 超过最大亮度阈值，灯全灭
+        return 0
+    if brightness <= MIN_BRIGHTNESS_THRESHOLD:
+        # 低于最小亮度阈值，灯全亮
+        return 4
+    
+    # 2. 把有效亮度区间（MIN~MAX）映射到0-1的范围
+    normalized_brightness = (brightness - MIN_BRIGHTNESS_THRESHOLD) / (MAX_BRIGHTNESS_THRESHOLD - MIN_BRIGHTNESS_THRESHOLD)
+    
+    # 3. 应用灵敏度增益，反转亮度（越暗灯越亮）
+    target_level = (1.0 - normalized_brightness) * SENSITIVITY_GAIN * 4
+    
+    # 4. 限制在0-4范围内
+    return max(0, min(4, round(target_level)))
+
+def set_leds(level):
+    """设置LED亮灯数量"""
     level = max(0, min(4, int(level)))
-    for i in range(min(4, len(leds))):
+    for i in range(4):
         leds[i].on() if i < level else leds[i].off()
 
-def get_current_led_count():
-    count = 0
-    for led in leds:
-        try:
-            if led.value == 1:
-                count += 1
-        except Exception:
-            pass
-    return count
-
 # ==================== AUTO MODE THREAD ====================
-def auto_mode_loop():
-    global system_mode, system_running
-    while system_running:
-        if system_mode == "auto" and light_sensor_available:
-            try:
-                ambient_light = read_light_level()
-                target_led_count = int((1.0 - ambient_light) * 4)
-                set_led_level(target_led_count)
-            except Exception:
-                pass
+def auto_loop():
+    global system_mode, running
+    while running:
+        if system_mode == "auto":
+            # 读取滤波后的亮度值
+            current_brightness = read_light_filtered()
+            # 映射到LED数量
+            led_level = map_brightness_to_leds(current_brightness)
+            # 设置LED
+            set_leds(led_level)
         time.sleep(0.2)
 
 # ==================== WEB UI TEMPLATE ====================
@@ -157,7 +127,7 @@ HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>4-LED Light Control</title>
+    <title>High-Sensitivity 4-LED Light Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
@@ -174,12 +144,13 @@ HTML_TEMPLATE = """
         .slider-container { margin-bottom: 40px; display: none; }
         .slider-container.active { display: block; }
         .slider { width: 100%; height: 20px; margin: 10px 0; }
-        .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; }
+        .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; margin-bottom: 10px; }
+        .sensitivity-info { font-size: 14px; color: #666; text-align: left; padding: 15px; background: #f8f9fa; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="control-card">
-        <h1>4-LED Light Control System</h1>
+        <h1>High-Sensitivity 4-LED Control</h1>
         <div class="mode-switch">
             <button id="auto-btn" class="mode-btn active" onclick="setMode('auto')">Auto Mode</button>
             <button id="manual-btn" class="mode-btn" onclick="setMode('manual')">Manual Mode</button>
@@ -191,128 +162,104 @@ HTML_TEMPLATE = """
             <div class="led-indicator" id="led4"></div>
         </div>
         <div id="slider-container" class="slider-container">
-            <label for="led-slider">Manual LED Control (0-4):</label>
-            <input type="range" id="led-slider" class="slider" min="0" max="4" value="0" oninput="setManualLevel(this.value)">
+            <label for="led-slider">LED Control (0-4):</label>
+            <input type="range" id="led-slider" class="slider" min="0" max="4" value="0" oninput="setLevel(this.value)">
             <p>LEDs ON: <span id="led-value">0</span>/4</p>
         </div>
         <div id="status" class="status">Loading system status...</div>
+        <div class="sensitivity-info">
+            <b>灵敏度说明：</b><br>
+            - 亮度超过80%：灯全灭<br>
+            - 亮度低于10%：灯全亮<br>
+            - 中间区间：亮度越低，灯越亮
+        </div>
     </div>
     <script>
-        let currentMode = 'auto';
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('auto-btn').classList.toggle('active', mode === 'auto');
-            document.getElementById('manual-btn').classList.toggle('active', mode === 'manual');
-            document.getElementById('slider-container').classList.toggle('active', mode === 'manual');
-            fetch('/set_mode', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({mode: mode})
-            });
+        let mode = 'auto';
+        function setMode(m) {
+            mode = m;
+            document.getElementById('auto-btn').classList.toggle('active', m === 'auto');
+            document.getElementById('manual-btn').classList.toggle('active', m === 'manual');
+            document.getElementById('slider-container').classList.toggle('active', m === 'manual');
+            fetch('/mode?m=' + m);
         }
-        function setManualLevel(value) {
+        function setLevel(value) {
             document.getElementById('led-value').textContent = value;
-            fetch('/set_led', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({level: value})
+            fetch('/set?l=' + value);
+        }
+        function update() {
+            fetch('/status').then(r => r.json()).then(data => {
+                // Update LED indicators
+                for(let i=1; i<=4; i++) {
+                    document.getElementById(`led${i}`).classList.toggle('on', i <= data.leds);
+                }
+                // Update status text
+                let statusText = '';
+                if(data.mode === 'auto') {
+                    statusText = `Auto Mode | Ambient Light: ${(data.light*100).toFixed(0)}% | LEDs ON: ${data.leds}/4`;
+                } else {
+                    statusText = `Manual Mode | LEDs ON: ${data.leds}/4`;
+                }
+                document.getElementById('status').textContent = statusText;
+                // Update slider in manual mode
+                if(data.mode === 'manual') {
+                    document.getElementById('led-slider').value = data.leds;
+                    document.getElementById('led-value').textContent = data.leds;
+                }
             });
         }
-        function updateStatus() {
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => {
-                    // Update LEDs
-                    const ledCount = data.led_count;
-                    for (let i=1; i<=4; i++) {
-                        document.getElementById(`led${i}`).classList.toggle('on', i <= ledCount);
-                    }
-                    // Update status
-                    let statusText = '';
-                    if (data.mode === 'auto') {
-                        statusText = `Auto Mode | Ambient Light: ${(data.light_value * 100).toFixed(0)}% | LEDs ON: ${ledCount}/4`;
-                    } else {
-                        statusText = `Manual Mode | LEDs ON: ${ledCount}/4`;
-                    }
-                    document.getElementById('status').textContent = statusText;
-                    // Update slider
-                    if (data.mode === 'manual') {
-                        document.getElementById('led-slider').value = ledCount;
-                        document.getElementById('led-value').textContent = ledCount;
-                    }
-                });
-        }
-        setInterval(updateStatus, 500);
-        updateStatus();
+        setInterval(update, 500);
+        update();
     </script>
 </body>
 </html>
 """
 
-# ==================== FLASK ROUTES ====================
+# ==================== WEB ROUTES ====================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/set_mode', methods=['POST'])
+@app.route('/mode')
 def set_mode():
     global system_mode
-    data = request.get_json()
-    mode = data.get('mode', 'auto')
-    if mode in ['auto', 'manual']:
-        system_mode = mode
-    return jsonify(get_status_data())
+    system_mode = request.args.get('m', 'auto')
+    return "OK"
 
-@app.route('/set_led', methods=['POST'])
-def set_led():
-    global manual_led_level, system_mode
-    data = request.get_json()
-    level = int(data.get('level', 0))
+@app.route('/set')
+def set_level():
+    global manual_level, system_mode
     if system_mode == 'manual':
-        manual_led_level = max(0, min(4, level))
-        set_led_level(manual_led_level)
-    return jsonify(get_status_data())
+        manual_level = int(request.args.get('l', 0))
+        set_leds(manual_level)
+    return "OK"
 
 @app.route('/status')
 def status():
-    return jsonify(get_status_data())
-
-# ==================== STATUS HELPER ====================
-def get_status_data():
-    light_value = 0.5
-    if light_sensor_available:
-        light_value = read_light_level()
-    return {
+    current_brightness = read_light_filtered()
+    leds_on = 0
+    if system_mode == 'auto':
+        leds_on = map_brightness_to_leds(current_brightness)
+    else:
+        leds_on = manual_level
+    return jsonify({
         'mode': system_mode,
-        'led_count': get_current_led_count(),
-        'light_value': light_value
-    }
+        'light': current_brightness,
+        'leds': leds_on
+    })
 
-# ==================== MAIN ====================
+# ==================== MAIN PROGRAM ====================
 if __name__ == '__main__':
-    try:
-        print("=" * 50)
-        print("4-LED Environmental Light System Starting")
-        print("=" * 50)
-        print("Initializing hardware...")
-
-        setup_hardware()
-        set_led_level(0)
-
-        auto_thread = threading.Thread(target=auto_mode_loop)
-        auto_thread.daemon = True
-        auto_thread.start()
-
-        print("\n✅ System started successfully!")
-        print("🌐 Access Web UI at: http://raspberrypi.local:5000")
-        print("⏹️  Press Ctrl+C to stop")
-        print("=" * 50 + "\n")
-
-        app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
-
-    except KeyboardInterrupt:
-        print("\nReceived stop command")
-        safe_shutdown()
-    except Exception as e:
-        print(f"\n❌ Startup failed: {str(e)}")
-        safe_shutdown()
+    print("="*60)
+    print("High-Sensitivity 4-LED Light Control System")
+    print("="*60)
+    print(f"Sensitivity Gain: {SENSITIVITY_GAIN}x")
+    print(f"Brightness Threshold: {MIN_BRIGHTNESS_THRESHOLD*100}% ~ {MAX_BRIGHTNESS_THRESHOLD*100}%")
+    print("LEDs initialized: All OFF")
+    print("Starting auto control thread...")
+    threading.Thread(target=auto_loop, daemon=True).start()
+    print("✅ System started successfully!")
+    print("🌐 Access Web UI at: http://raspberrypi.local:5000")
+    print("⏹️  Press Ctrl+C to stop the system")
+    print("="*60 + "\n")
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
