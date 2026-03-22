@@ -1,19 +1,9 @@
-# 4-LED High-Sensitivity Light Control System
+# 4-LED System with Simple Light Sensor (No Interrupts) - High Sensitivity Version
 from flask import Flask, render_template_string, request, jsonify
 from gpiozero import LED
 import threading
 import time
 import atexit
-
-# ==================== 灵敏度调节参数（直接改这里就行！） ====================
-# 灵敏度增益：数值越大，越敏感（推荐1.0-3.0，默认2.0）
-SENSITIVITY_GAIN = 2.0
-# 最大亮度阈值：超过这个亮度，灯全灭（默认0.8 = 80%亮度）
-MAX_BRIGHTNESS_THRESHOLD = 0.8
-# 最小亮度阈值：低于这个亮度，灯全亮（默认0.1 = 10%亮度）
-MIN_BRIGHTNESS_THRESHOLD = 0.1
-# 滤波采样次数：数值越大，读数越稳，反应稍慢（默认5次）
-FILTER_SAMPLES = 5
 
 # ==================== HARDWARE CONFIG ====================
 LED_PINS = [22, 23, 24, 25]
@@ -25,109 +15,92 @@ app = Flask(__name__)
 system_mode = "auto"
 manual_level = 0
 running = True
-# 滤波用的历史读数缓存
-light_readings_history = []
+
+# ==================== FILTER HISTORY (NEW) ====================
+light_history = []
 
 # ==================== SAFE SHUTDOWN ====================
 def safe_shutdown():
     global running
-    print("\nShutting down system safely...")
+    print("\nShutting down...")
     running = False
     for led in leds:
         led.off()
         led.close()
-    print("All LEDs turned off and GPIO released")
+    print("All LEDs off")
 
 atexit.register(safe_shutdown)
 
-# ==================== HIGH-SENSITIVITY LIGHT READING WITH FILTER ====================
-def read_light_single():
-    """单次光敏读数，优化采样逻辑"""
+# ==================== SIMPLE LIGHT READ (No Interrupts!) - WITH FILTER (MODIFIED) ====================
+def read_light():
+    """带滤波的光敏读数，解决跳变问题"""
+    global light_history
     try:
         import RPi.GPIO as GPIO
         GPIO.setmode(GPIO.BCM)
-        # 放电清零
         GPIO.setup(LIGHT_PIN, GPIO.OUT)
         GPIO.output(LIGHT_PIN, GPIO.LOW)
-        time.sleep(0.01)
+        time.sleep(0.05)
         
-        # 开始充电计时
         GPIO.setup(LIGHT_PIN, GPIO.IN)
-        start_time = time.time()
-        # 等待引脚电平拉高，超时0.1秒
-        while GPIO.input(LIGHT_PIN) == GPIO.LOW and (time.time() - start_time) < 0.1:
+        start = time.time()
+        while GPIO.input(LIGHT_PIN) == GPIO.LOW and (time.time() - start) < 0.1:
             pass
-        charge_time = time.time() - start_time
+        charge_time = time.time() - start
         
-        # 清理GPIO
         GPIO.cleanup(LIGHT_PIN)
         
-        # 转换为亮度值：0=全黑，1=全亮
-        raw_brightness = 1.0 - min(1.0, charge_time * 10)
-        return max(0.0, min(1.0, raw_brightness))
-    except Exception as e:
-        print(f"Light read error: {str(e)}")
+        # 原始亮度值
+        raw = 1.0 - min(1.0, charge_time * 10)
+        
+        # 滑动平均滤波：存最近5次读数，取平均
+        light_history.append(raw)
+        if len(light_history) > 5:
+            light_history.pop(0)
+        average = sum(light_history) / len(light_history)
+        
+        return max(0.0, min(1.0, average))
+    except:
         return 0.5
 
-def read_light_filtered():
-    """带滑动平均滤波的亮度读数，解决跳变问题"""
-    global light_readings_history
-    # 单次采样
-    current_reading = read_light_single()
-    # 加入历史缓存
-    light_readings_history.append(current_reading)
-    # 限制缓存长度
-    if len(light_readings_history) > FILTER_SAMPLES:
-        light_readings_history.pop(0)
-    # 取平均值
-    average_reading = sum(light_readings_history) / len(light_readings_history)
-    return average_reading
-
-# ==================== LED CONTROL WITH SENSITIVITY MAPPING ====================
-def map_brightness_to_leds(brightness):
-    """把亮度值映射到LED数量，放大暗光灵敏度"""
-    # 1. 先把亮度限制在阈值范围内
-    if brightness >= MAX_BRIGHTNESS_THRESHOLD:
-        # 超过最大亮度阈值，灯全灭
-        return 0
-    if brightness <= MIN_BRIGHTNESS_THRESHOLD:
-        # 低于最小亮度阈值，灯全亮
-        return 4
-    
-    # 2. 把有效亮度区间（MIN~MAX）映射到0-1的范围
-    normalized_brightness = (brightness - MIN_BRIGHTNESS_THRESHOLD) / (MAX_BRIGHTNESS_THRESHOLD - MIN_BRIGHTNESS_THRESHOLD)
-    
-    # 3. 应用灵敏度增益，反转亮度（越暗灯越亮）
-    target_level = (1.0 - normalized_brightness) * SENSITIVITY_GAIN * 4
-    
-    # 4. 限制在0-4范围内
-    return max(0, min(4, round(target_level)))
-
+# ==================== LED CONTROL ====================
 def set_leds(level):
-    """设置LED亮灯数量"""
     level = max(0, min(4, int(level)))
     for i in range(4):
         leds[i].on() if i < level else leds[i].off()
 
-# ==================== AUTO MODE THREAD ====================
+# ==================== AUTO MODE THREAD - WITH HIGH SENSITIVITY (MODIFIED) ====================
 def auto_loop():
     global system_mode, running
     while running:
         if system_mode == "auto":
-            # 读取滤波后的亮度值
-            current_brightness = read_light_filtered()
-            # 映射到LED数量
-            led_level = map_brightness_to_leds(current_brightness)
-            # 设置LED
-            set_leds(led_level)
+            light = read_light()
+            
+            # ==================== 高灵敏度映射 ====================
+            # 超过80%亮度：灯全灭
+            if light >= 0.8:
+                level = 0
+            # 低于20%亮度：灯全亮
+            elif light <= 0.2:
+                level = 4
+            # 中间区间：放大灵敏度，稍微暗一点就亮灯
+            else:
+                # 把20%-80%的亮度区间，映射到0-4的LED数量
+                normalized = (light - 0.2) / (0.8 - 0.2)
+                # 反转：越暗灯越亮，再放大1.5倍灵敏度
+                level = int((1.0 - normalized) * 1.5 * 4)
+                level = max(0, min(4, level))
+            # =====================================================
+            
+            set_leds(level)
         time.sleep(0.2)
 
-# ==================== WEB UI TEMPLATE ====================
+# ==================== WEB UI ====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>High-Sensitivity 4-LED Light Control</title>
+    <title>4-LED Light Control</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
@@ -144,13 +117,12 @@ HTML_TEMPLATE = """
         .slider-container { margin-bottom: 40px; display: none; }
         .slider-container.active { display: block; }
         .slider { width: 100%; height: 20px; margin: 10px 0; }
-        .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; margin-bottom: 10px; }
-        .sensitivity-info { font-size: 14px; color: #666; text-align: left; padding: 15px; background: #f8f9fa; border-radius: 8px; }
+        .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; }
     </style>
 </head>
 <body>
     <div class="control-card">
-        <h1>High-Sensitivity 4-LED Control</h1>
+        <h1>4-LED Light Control</h1>
         <div class="mode-switch">
             <button id="auto-btn" class="mode-btn active" onclick="setMode('auto')">Auto Mode</button>
             <button id="manual-btn" class="mode-btn" onclick="setMode('manual')">Manual Mode</button>
@@ -166,13 +138,7 @@ HTML_TEMPLATE = """
             <input type="range" id="led-slider" class="slider" min="0" max="4" value="0" oninput="setLevel(this.value)">
             <p>LEDs ON: <span id="led-value">0</span>/4</p>
         </div>
-        <div id="status" class="status">Loading system status...</div>
-        <div class="sensitivity-info">
-            <b>灵敏度说明：</b><br>
-            - 亮度超过80%：灯全灭<br>
-            - 亮度低于10%：灯全亮<br>
-            - 中间区间：亮度越低，灯越亮
-        </div>
+        <div id="status" class="status">Loading...</div>
     </div>
     <script>
         let mode = 'auto';
@@ -189,19 +155,16 @@ HTML_TEMPLATE = """
         }
         function update() {
             fetch('/status').then(r => r.json()).then(data => {
-                // Update LED indicators
                 for(let i=1; i<=4; i++) {
                     document.getElementById(`led${i}`).classList.toggle('on', i <= data.leds);
                 }
-                // Update status text
-                let statusText = '';
+                let text = '';
                 if(data.mode === 'auto') {
-                    statusText = `Auto Mode | Ambient Light: ${(data.light*100).toFixed(0)}% | LEDs ON: ${data.leds}/4`;
+                    text = `Auto | Light: ${(data.light*100).toFixed(0)}% | LEDs: ${data.leds}/4`;
                 } else {
-                    statusText = `Manual Mode | LEDs ON: ${data.leds}/4`;
+                    text = `Manual | LEDs: ${data.leds}/4`;
                 }
-                document.getElementById('status').textContent = statusText;
-                // Update slider in manual mode
+                document.getElementById('status').textContent = text;
                 if(data.mode === 'manual') {
                     document.getElementById('led-slider').value = data.leds;
                     document.getElementById('led-value').textContent = data.leds;
@@ -215,7 +178,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# ==================== WEB ROUTES ====================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -236,30 +198,34 @@ def set_level():
 
 @app.route('/status')
 def status():
-    current_brightness = read_light_filtered()
+    light = read_light()
     leds_on = 0
     if system_mode == 'auto':
-        leds_on = map_brightness_to_leds(current_brightness)
+        # 这里也用同样的高灵敏度映射，保持UI和实际一致
+        if light >= 0.8:
+            leds_on = 0
+        elif light <= 0.2:
+            leds_on = 4
+        else:
+            normalized = (light - 0.2) / (0.8 - 0.2)
+            leds_on = int((1.0 - normalized) * 1.5 * 4)
+            leds_on = max(0, min(4, leds_on))
     else:
         leds_on = manual_level
     return jsonify({
         'mode': system_mode,
-        'light': current_brightness,
+        'light': light,
         'leds': leds_on
     })
 
-# ==================== MAIN PROGRAM ====================
 if __name__ == '__main__':
-    print("="*60)
-    print("High-Sensitivity 4-LED Light Control System")
-    print("="*60)
-    print(f"Sensitivity Gain: {SENSITIVITY_GAIN}x")
-    print(f"Brightness Threshold: {MIN_BRIGHTNESS_THRESHOLD*100}% ~ {MAX_BRIGHTNESS_THRESHOLD*100}%")
-    print("LEDs initialized: All OFF")
-    print("Starting auto control thread...")
+    print("="*50)
+    print("4-LED Light Control System")
+    print("="*50)
+    print("LEDs initialized")
+    print("Starting auto thread...")
     threading.Thread(target=auto_loop, daemon=True).start()
-    print("✅ System started successfully!")
-    print("🌐 Access Web UI at: http://raspberrypi.local:5000")
-    print("⏹️  Press Ctrl+C to stop the system")
-    print("="*60 + "\n")
+    print("Access Web UI at: http://raspberrypi.local:5000")
+    print("Press Ctrl+C to stop")
+    print("="*50 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
