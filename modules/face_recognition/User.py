@@ -38,7 +38,10 @@ class User:
         # Here you would add the logic to start the timer and play the audio file
     
     def update_settings(self):
-        import testmain
+        try:
+            from . import testmain
+        except ImportError:
+            import testmain
         print("\n=== Settings Menu ===")
         print("1. Update Focus/Break Time")
         print("2. Update Light Setting")

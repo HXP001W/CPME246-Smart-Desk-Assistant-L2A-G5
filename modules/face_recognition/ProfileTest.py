@@ -4,17 +4,32 @@ import time
 import threading
 import gc
 
-from testmain import startup
-
 # DeepFace is imported lazily in a background thread to avoid blocking startup
 _deepface_module = None
 _deepface_ready = threading.Event()
+_deepface_available = False
+_deepface_error = None
+
+
+def _startup(registeredUser=False, userID=-1):
+    """Import startup lazily to avoid circular imports."""
+    try:
+        from .testmain import startup
+    except ImportError:
+        from testmain import startup
+    startup(registeredUser=registeredUser, userID=userID)
 
 def _load_deepface():
-    global _deepface_module
-    from deepface import DeepFace
-    _deepface_module = DeepFace
-    _deepface_ready.set()
+    global _deepface_module, _deepface_available, _deepface_error
+    try:
+        from deepface import DeepFace
+        _deepface_module = DeepFace
+        _deepface_available = True
+    except Exception as e:
+        _deepface_error = str(e)
+        _deepface_available = False
+    finally:
+        _deepface_ready.set()
 
 # Get the configurable database path
 DB_PATH = os.getenv('CMPE246_DB_PATH', os.path.join(os.path.expanduser('~'), 'CMPE246_DB'))
@@ -67,6 +82,8 @@ def identity_test():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    warned_missing_deepface = False
     
     start_time = None
     timeout = 30  # 30 seconds timeout
@@ -86,11 +103,27 @@ def identity_test():
             # Default on-screen status
             status_text = "Initializing face recognition..."
             status_color = (0, 200, 255)
-            if _deepface_ready.is_set():
+            if _deepface_ready.is_set() and _deepface_available:
                 status_text = "Facial recognition ACTIVE"
                 status_color = (0, 255, 0)
                 if start_time is None:
                     start_time = time.time()
+            elif _deepface_ready.is_set() and not _deepface_available:
+                status_text = "DeepFace unavailable - guest mode"
+                status_color = (0, 0, 255)
+
+                if not warned_missing_deepface:
+                    print("\nDeepFace is not available in this environment.")
+                    print("Install it with: pip install deepface tf-keras")
+                    if _deepface_error:
+                        print(f"Import error: {_deepface_error}")
+                    print("Continuing as guest...")
+                    warned_missing_deepface = True
+
+                cap.release()
+                cv2.destroyAllWindows()
+                _startup(registeredUser=False, userID=-1)
+                return
             
             # Check if timeout reached
             elapsed_time = 0 if start_time is None else (time.time() - start_time)
@@ -99,7 +132,7 @@ def identity_test():
                 print("No registered user detected. Continuing as guest...")
                 cap.release()
                 cv2.destroyAllWindows()
-                startup(registeredUser=False, userID=-1)
+                _startup(registeredUser=False, userID=-1)
                 return
             
             frame_count += 1
@@ -153,7 +186,7 @@ def identity_test():
                                 cv2.destroyAllWindows()
 
                                 # Call startup with registered user
-                                startup(registeredUser=True, userID=matched_identity)
+                                _startup(registeredUser=True, userID=matched_identity)
                                 return
 
                     except Exception as e:
@@ -194,7 +227,7 @@ def identity_test():
                 print("No face recognized. Continuing as guest...")
                 cap.release()
                 cv2.destroyAllWindows()
-                startup(registeredUser=False, userID=-1)
+                _startup(registeredUser=False, userID=-1)
                 break
                 
     except KeyboardInterrupt:

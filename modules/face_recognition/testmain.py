@@ -1,7 +1,10 @@
-
-import User
+try:
+    from . import User
+    from . import ProfileTest
+except ImportError:
+    import User
+    import ProfileTest
 import shutil
-import ProfileTest
 import os
 import cv2
 import json
