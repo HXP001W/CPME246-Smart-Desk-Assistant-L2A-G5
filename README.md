@@ -53,9 +53,11 @@ pip install -r requirements-hardware.txt
 
 ### DeepFace Setup
 ```bash
-cd modules/deepface
-pip install -r requirements.txt
+pip install deepface tf-keras
 ```
+
+You do **not** need to clone the full DeepFace repository to use `modules/face_recognition/`.
+The project can use the PyPI package directly.
 
 ## Configuration
 
