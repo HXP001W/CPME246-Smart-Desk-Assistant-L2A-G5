@@ -70,10 +70,10 @@ def identity_test():
     threading.Thread(target=_load_deepface, daemon=True).start()
 
     # Open camera - try index 0 first (most common default), then 1
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         print("Trying alternate camera (source 1)...")
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(1)
         if not cap.isOpened():
             print("Error: No camera available")
             return
