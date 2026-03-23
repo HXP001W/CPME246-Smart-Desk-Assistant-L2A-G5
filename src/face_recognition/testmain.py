@@ -1,9 +1,9 @@
 try:
     from . import User
-    from . import ProfileTest
+    from . import Identify
 except ImportError:
     import User
-    import ProfileTest
+    import face_recognition.Identify as Identify
 import shutil
 import os
 import cv2
@@ -141,7 +141,7 @@ userList = load_users()
 guestUser = User.User(name="Guest", focusTime=25, breakTime=5, light="default", audioFile="default.mp3")
 
 if __name__ == "__main__":
-    ProfileTest.identity_test()
+    Identify.identity_test()
 
 
 def startup(registeredUser=False, userID=-1):
