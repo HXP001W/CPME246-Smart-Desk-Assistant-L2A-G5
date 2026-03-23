@@ -3,6 +3,7 @@ import cv2
 import time
 import threading
 import gc
+import numpy as np
 
 # DeepFace is imported lazily in a background thread to avoid blocking startup
 _deepface_module = None
@@ -25,6 +26,11 @@ def _load_deepface():
         from deepface import DeepFace
         _deepface_module = DeepFace
         _deepface_available = True
+        
+        # Configure DeepFace for memory-efficient operation on Raspberry Pi
+        # Suppress verbose logging to reduce memory overhead
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow warnings
+        
     except Exception as e:
         _deepface_error = str(e)
         _deepface_available = False
@@ -81,16 +87,17 @@ def identity_test():
     # Keep stream memory footprint low
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Only keep 1 frame in buffer
+    cap.set(cv2.CAP_PROP_FPS, 10)  # Reduce frame rate to reduce processing load
 
     warned_missing_deepface = False
     
     start_time = None
     timeout = 30  # 30 seconds timeout
     last_check_time = 0
-    check_interval = 2  # Check every 2 seconds
+    check_interval = 3  # Check every 3 seconds to reduce memory pressure
     frame_count = 0
-    process_every_n_frames = 5  # Process every 5th frame for performance
+    process_every_n_frames = 8  # Process every 8th frame for performance
     analysis_count = 0
     
     try:
@@ -150,22 +157,27 @@ def identity_test():
                     status_text = "Facial recognition ACTIVE - analyzing..."
                     status_color = (0, 255, 0)
 
-                    # Downscale for lower memory use during recognition
+                    # Downscale aggressively for lower memory use on Raspberry Pi
+                    # Reduces resolution to 320x240 (~25% of original)
                     analysis_frame = cv2.resize(
                         frame,
-                        (0, 0),
-                        fx=0.5,
-                        fy=0.5,
+                        (320, 240),
                         interpolation=cv2.INTER_AREA
                     )
+                    
+                    # Convert to uint8 to reduce memory footprint if needed
+                    if analysis_frame.dtype != np.uint8:
+                        analysis_frame = analysis_frame.astype(np.uint8)
 
                     try:
-                        # Try to find matching face in database
+                        # Try to find matching face in database with memory-efficient settings
                         dfs = _deepface_module.find(
                             img_path=analysis_frame,
                             db_path=DB_PATH,
                             enforce_detection=False,
-                            silent=True
+                            silent=True,
+                            model_name="DeepFace",  # Lighter model than default VGG-Face
+                            distance_metric="cosine"  # Faster computation than euclidean
                         )
 
                         # Check if match found
@@ -193,16 +205,18 @@ def identity_test():
                         # Silently handle detection errors (no face in frame, etc.)
                         pass
                     finally:
-                        # Release recognition intermediates promptly
+                        # Release recognition intermediates promptly to free memory
                         analysis_count += 1
                         if 'dfs' in locals():
                             del dfs
                         if 'result_df' in locals():
                             del result_df
-                        del analysis_frame
+                        if 'analysis_frame' in locals():
+                            del analysis_frame
 
-                        # Periodic garbage collection helps long-running streams
-                        if analysis_count % 10 == 0:
+                        # Aggressive garbage collection to prevent memory buildup
+                        # Run every 5 analysis iterations on Raspberry Pi
+                        if analysis_count % 5 == 0:
                             gc.collect()
 
             # Draw status and timeout countdown overlay for user feedback
@@ -220,6 +234,11 @@ def identity_test():
 
             # Display the frame with overlays
             cv2.imshow('Face Recognition - Press q to quit', frame)
+            
+            # Clean up frame memory periodically
+            if frame_count % 20 == 0:
+                del frame
+                gc.collect()
             
             # Check for 'q' key to quit
             if cv2.waitKey(1) & 0xFF == ord('q'):
