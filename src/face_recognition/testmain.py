@@ -3,7 +3,7 @@ try:
     from . import Identify
 except ImportError:
     import User
-    import face_recognition.Identify as Identify
+    import Identify
 import shutil
 import os
 import cv2

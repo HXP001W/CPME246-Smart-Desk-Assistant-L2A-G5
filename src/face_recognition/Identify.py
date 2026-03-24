@@ -95,9 +95,9 @@ def identity_test():
     start_time = None
     timeout = 30  # 30 seconds timeout
     last_check_time = 0
-    check_interval = 3  # Check every 3 seconds to reduce memory pressure
+    check_interval = 2.5  # Check every 2.5 seconds to balance memory and accuracy
     frame_count = 0
-    process_every_n_frames = 8  # Process every 8th frame for performance
+    process_every_n_frames = 6  # Process every 6th frame for performance
     analysis_count = 0
     
     try:
@@ -157,27 +157,24 @@ def identity_test():
                     status_text = "Facial recognition ACTIVE - analyzing..."
                     status_color = (0, 255, 0)
 
-                    # Downscale aggressively for lower memory use on Raspberry Pi
-                    # Reduces resolution to 320x240 (~25% of original)
+                    # Downscale moderately for lower memory use on Raspberry Pi
+                    # Reduces resolution to ~60% of original for better accuracy
                     analysis_frame = cv2.resize(
                         frame,
-                        (320, 240),
+                        (0, 0),
+                        fx=0.6,
+                        fy=0.6,
                         interpolation=cv2.INTER_AREA
                     )
-                    
-                    # Convert to uint8 to reduce memory footprint if needed
-                    if analysis_frame.dtype != np.uint8:
-                        analysis_frame = analysis_frame.astype(np.uint8)
 
                     try:
-                        # Try to find matching face in database with memory-efficient settings
+                        # Try to find matching face in database
+                        # Using default model for better accuracy on Raspberry Pi
                         dfs = _deepface_module.find(
                             img_path=analysis_frame,
                             db_path=DB_PATH,
                             enforce_detection=False,
-                            silent=True,
-                            model_name="DeepFace",  # Lighter model than default VGG-Face
-                            distance_metric="cosine"  # Faster computation than euclidean
+                            silent=True
                         )
 
                         # Check if match found
@@ -214,9 +211,9 @@ def identity_test():
                         if 'analysis_frame' in locals():
                             del analysis_frame
 
-                        # Aggressive garbage collection to prevent memory buildup
-                        # Run every 5 analysis iterations on Raspberry Pi
-                        if analysis_count % 5 == 0:
+                        # Moderate garbage collection to prevent memory buildup
+                        # Run every 7 analysis iterations to balance cleanup and performance
+                        if analysis_count % 7 == 0:
                             gc.collect()
 
             # Draw status and timeout countdown overlay for user feedback
