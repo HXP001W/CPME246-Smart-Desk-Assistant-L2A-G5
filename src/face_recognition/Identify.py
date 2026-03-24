@@ -84,20 +84,20 @@ def identity_test():
             print("Error: No camera available")
             return
 
-    # Keep stream memory footprint low
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    # Keep stream memory footprint extremely low for Raspberry Pi
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)  # Reduced from 640
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)  # Reduced from 480
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Only keep 1 frame in buffer
-    cap.set(cv2.CAP_PROP_FPS, 10)  # Reduce frame rate to reduce processing load
+    cap.set(cv2.CAP_PROP_FPS, 5)  # Reduced from 10 - very low frame rate
 
     warned_missing_deepface = False
     
     start_time = None
     timeout = 30  # 30 seconds timeout
     last_check_time = 0
-    check_interval = 2.5  # Check every 2.5 seconds to balance memory and accuracy
+    check_interval = 4  # Check every 4 seconds - much less frequent
     frame_count = 0
-    process_every_n_frames = 6  # Process every 6th frame for performance
+    process_every_n_frames = 10  # Process every 10th frame to reduce memory pressure
     analysis_count = 0
     
     try:
@@ -157,15 +157,16 @@ def identity_test():
                     status_text = "Facial recognition ACTIVE - analyzing..."
                     status_color = (0, 255, 0)
 
-                    # Downscale moderately for lower memory use on Raspberry Pi
-                    # Reduces resolution to ~60% of original for better accuracy
+                    # Downscale significantly to prevent memory overflow
+                    # Reduces to ~50% of camera stream resolution
                     analysis_frame = cv2.resize(
                         frame,
-                        (0, 0),
-                        fx=0.6,
-                        fy=0.6,
+                        (240, 180),  # Fixed low resolution
                         interpolation=cv2.INTER_AREA
                     )
+                    
+                    # Ensure low memory footprint
+                    analysis_frame = analysis_frame.astype(np.uint8)
 
                     try:
                         # Try to find matching face in database
@@ -211,9 +212,9 @@ def identity_test():
                         if 'analysis_frame' in locals():
                             del analysis_frame
 
-                        # Moderate garbage collection to prevent memory buildup
-                        # Run every 7 analysis iterations to balance cleanup and performance
-                        if analysis_count % 7 == 0:
+                        # Aggressive garbage collection to prevent memory buildup
+                        # Run frequently on Raspberry Pi to prevent freezing
+                        if analysis_count % 3 == 0:
                             gc.collect()
 
             # Draw status and timeout countdown overlay for user feedback
@@ -232,8 +233,8 @@ def identity_test():
             # Display the frame with overlays
             cv2.imshow('Face Recognition - Press q to quit', frame)
             
-            # Clean up frame memory periodically
-            if frame_count % 20 == 0:
+            # Aggressive frame cleanup to prevent memory buildup
+            if frame_count % 5 == 0:
                 del frame
                 gc.collect()
             
