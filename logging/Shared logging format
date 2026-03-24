@@ -1,0 +1,58 @@
+Shared logging format
+
+Each log entry should look similar to this:
+{
+  "timestamp": "2026-03-23T16:45:12.381920",
+  "session_id": "2026-03-23_study_session_01",
+  "module": "distraction_detection",
+  "event_type": "warning_triggered",
+  "value": "distraction",
+  "details": {
+    "attention_state": "LOOKING_LEFT",
+    "posture_state": "OK",
+    "phone_present": false,
+    "duration_seconds": 5.2
+  }
+}
+
+
+Example Required fields:
+	•	timestamp: ISO format string
+	•	session_id: same session ID across all modules
+	•	module: which subsystem created the log
+	•	event_type: category of event
+	•	value: short main value
+	•	details: extra structured info
+
+
+Example Event Types:
+Distraction module
+	•	state_update
+	•	warning_triggered
+	•	punishment_ready
+	•	phone_detected
+	•	focus_restored
+	•	idle_detected
+	•	app_blacklist_detected
+
+Facial recognition module
+	•	user_detected
+	•	profile_loaded
+	•	face_unknown
+
+Hardware module
+	•	light_changed
+	•	servo_moved
+	•	water_gun_triggered
+	•	buzzer_triggered
+
+Environment module
+	•	temperature_reading
+	•	noise_reading
+	•	light_reading
+
+Session manager
+	•	session_started
+	•	session_paused
+	•	session_resumed
+	•	session_ended
