@@ -1,3 +1,18 @@
+import os
+import warnings
+
+# Suppress unnecessary DeepFace/TensorFlow log noise
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+
+# Provide a Qt font directory for OpenCV Qt backend to avoid QFontDatabase warnings
+for font_dir in ('/usr/share/fonts/truetype/dejavu', '/usr/share/fonts', '/usr/local/share/fonts'):
+    if os.path.isdir(font_dir):
+        os.environ.setdefault('QT_QPA_FONTDIR', font_dir)
+        break
+
+# Suppress repetitive QFontDatabase warnings from OpenCV UI backend
+warnings.filterwarnings('ignore', message='.*QFontDatabase.*')
+
 try:
     from . import User
     from . import Identify
@@ -5,7 +20,6 @@ except ImportError:
     import User
     import Identify
 import shutil
-import os
 import cv2
 import json
 import time

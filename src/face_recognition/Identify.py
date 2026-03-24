@@ -5,6 +5,15 @@ import threading
 import gc
 import numpy as np
 
+# Suppress unnecessary DeepFace/TensorFlow log noise
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+
+# Provide a Qt font directory for OpenCV Qt backend to avoid QFontDatabase warnings
+for font_dir in ('/usr/share/fonts/truetype/dejavu', '/usr/share/fonts', '/usr/local/share/fonts'):
+    if os.path.isdir(font_dir):
+        os.environ.setdefault('QT_QPA_FONTDIR', font_dir)
+        break
+
 # DeepFace is imported lazily in a background thread to avoid blocking startup
 _deepface_module = None
 _deepface_ready = threading.Event()
@@ -71,6 +80,12 @@ def identity_test():
     print("\nStarting camera face recognition...")
     print("Press 'q' to quit the camera stream")
     print("30-second timeout starts once facial recognition is active\n")
+
+    # Reduce OpenCV log noise
+    try:
+        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
+    except Exception:
+        pass
 
     # Start loading DeepFace in the background immediately
     threading.Thread(target=_load_deepface, daemon=True).start()
