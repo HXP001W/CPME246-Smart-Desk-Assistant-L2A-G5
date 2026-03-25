@@ -19,14 +19,13 @@ except:
 LED_PINS = [22, 23, 24, 25]
 LIGHT_SENSOR_PIN = 27  # Physical Pin 13
 
-# Water Pump Configuration
+# Water Pump Configuration (修改1：active_high改为True)
 PUMP_PIN = 18  # Physical Pin 11, connected to relay IN
-pump = OutputDevice(PUMP_PIN, active_high=False, initial_value=False)
+pump = OutputDevice(PUMP_PIN, active_high=True, initial_value=False)
 pump_timer = None
 
 # ==================== 两脚蜂鸣器配置 ====================
-BUZZER_PIN = 26  # 对应树莓派37号物理引脚，和接线完全对应
-# 有源蜂鸣器用active_high=True，不响就改成False
+BUZZER_PIN = 26  # 对应树莓派37号物理引脚
 buzzer = Buzzer(BUZZER_PIN, active_high=True, initial_value=False)
 
 # ==================== GLOBAL VARIABLES ====================
@@ -99,7 +98,7 @@ def setup_hardware():
     print("✅ Light sensor initialized (polling mode, no interrupts)")
     
     # Pump initialization
-    print(f"✅ Water pump initialized on GPIO {PUMP_PIN} (Pulse Mode: 2 seconds)")
+    print(f"✅ Water pump initialized on GPIO {PUMP_PIN} (Pulse Mode: 0.5 seconds, Active HIGH)")
     
     # 蜂鸣器初始化
     print(f"✅ 2-Pin Buzzer initialized on GPIO {BUZZER_PIN}")
@@ -177,17 +176,14 @@ def auto_mode_loop():
                 pass
         time.sleep(0.2)
 
-# ==================== 水泵+蜂鸣器同步核心函数 ====================
+# ==================== 水泵+蜂鸣器同步核心函数 (修改2：时间改为0.5秒) ====================
 def pump_pulse():
-    """启动水泵2秒，同时蜂鸣器响，然后自动同步关闭"""
+    """启动水泵0.5秒，同时蜂鸣器响，然后自动同步关闭"""
     global pump_timer
     try:
-        # 水泵启动，蜂鸣器同步响
         pump.on()
-        buzzer.on()  # 有源蜂鸣器用这个
-        # 无源蜂鸣器把上面一行换成：buzzer.beep(on_time=0.1, off_time=0.1, n=20)
-        time.sleep(2)
-        # 水泵停止，蜂鸣器同步停
+        buzzer.on()
+        time.sleep(0.5)  # 核心修改：从2秒改为0.5秒
         pump.off()
         buzzer.off()
     except Exception as e:
@@ -225,7 +221,7 @@ HTML_TEMPLATE = """
         .slider { width: 100%; height: 20px; margin: 10px 0; }
         .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; margin-top: 20px; }
         
-        /* Pump Control Styles */
+        /* Pump Control Styles (UI文字微调为0.5秒) */
         .status-display { padding: 30px; border-radius: 12px; margin-bottom: 50px; font-size: 24px; font-weight: bold; }
         .status-ready { background-color: #fff3cd; color: #856404; }
         .status-firing { background-color: #d4edda; color: #155724; }
@@ -258,14 +254,14 @@ HTML_TEMPLATE = """
             <div id="led-status" class="status">Loading system status...</div>
         </div>
 
-        <!-- Water Pump Control Section (完全未改动) -->
+        <!-- Water Pump Control Section (UI文字微调为0.5秒) -->
         <div class="control-card">
             <h1>Submersible Water Pump (Pulse Mode)</h1>
             <div id="pump-status" class="status-display status-ready">
                 Pump Status: Ready
             </div>
             <button id="pump-control-btn" class="control-button button-fire" onclick="firePump()">
-                🔥 FIRE (2s)
+                🔥 FIRE (0.5s)
             </button>
         </div>
     </div>
@@ -319,7 +315,7 @@ HTML_TEMPLATE = """
                 });
         }
 
-        // Pump Control Variables and Functions (完全未改动)
+        // Pump Control Variables and Functions (UI倒计时微调为0.5秒)
         let isPumping = false;
         function firePump() {
             if (isPumping) return;
@@ -341,9 +337,9 @@ HTML_TEMPLATE = """
                 statusDiv.textContent = 'Pump Status: Ready';
                 statusDiv.classList.remove('status-firing');
                 statusDiv.classList.add('status-ready');
-                controlBtn.textContent = '🔥 FIRE (2s)';
+                controlBtn.textContent = '🔥 FIRE (0.5s)';
                 controlBtn.disabled = false;
-            }, 2000);
+            }, 500); // 核心修改：从2000ms改为500ms
         }
 
         // Initial Load and Updates
