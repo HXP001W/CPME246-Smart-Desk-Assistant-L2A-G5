@@ -22,6 +22,7 @@ LIGHT_SENSOR_PIN = 27  # Physical Pin 13
 # Water Pump Configuration
 PUMP_PIN = 18  # Physical Pin 11, connected to relay IN
 pump = OutputDevice(PUMP_PIN, active_high=False, initial_value=False)
+pump_timer = None  # 新增：用于管理水泵自动关闭的线程锁
 
 # ==================== GLOBAL VARIABLES ====================
 app = Flask(__name__)
@@ -93,11 +94,11 @@ def setup_hardware():
     print("✅ Light sensor initialized (polling mode, no interrupts)")
     
     # Pump initialization
-    print(f"✅ Water pump initialized on GPIO {PUMP_PIN}")
+    print(f"✅ Water pump initialized on GPIO {PUMP_PIN} (Pulse Mode: 2 seconds)")
 
 # ==================== SAFE SHUTDOWN ====================
 def safe_shutdown():
-    global system_running, leds
+    global system_running, leds, pump_timer
     print("\n=== SAFE SHUTDOWN STARTED ===")
     system_running = False
 
@@ -160,6 +161,20 @@ def auto_mode_loop():
                 pass
         time.sleep(0.2)
 
+# ==================== 新增：水泵脉冲控制核心函数 ====================
+def pump_pulse():
+    """启动水泵2秒，然后自动关闭"""
+    global pump_timer
+    try:
+        pump.on()
+        time.sleep(2)  # 固定2秒脉冲
+        pump.off()
+    except Exception as e:
+        print(f"Pump pulse error: {str(e)}")
+        pump.off()
+    finally:
+        pump_timer = None  # 清除线程锁，允许下次触发
+
 # ==================== COMBINED WEB UI TEMPLATE (ENGLISH) ====================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -188,24 +203,19 @@ HTML_TEMPLATE = """
         .slider { width: 100%; height: 20px; margin: 10px 0; }
         .status { padding: 20px; background-color: #e3f2fd; border-radius: 10px; color: #1565c0; font-size: 18px; margin-top: 20px; }
         
-        /* Pump Control Styles */
+        /* Pump Control Styles (Modified for Pulse Mode) */
         .status-display { padding: 30px; border-radius: 12px; margin-bottom: 50px; font-size: 24px; font-weight: bold; }
-        .status-on { background-color: #d4edda; color: #155724; }
-        .status-off { background-color: #f8d7da; color: #721c24; }
+        .status-ready { background-color: #fff3cd; color: #856404; } /* 新增：就绪状态颜色 */
+        .status-firing { background-color: #d4edda; color: #155724; } /* 新增：触发中状态颜色 */
         .control-button { width: 100%; padding: 30px; font-size: 28px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; color: white; transition: all 0.2s ease; }
-        .button-on { background-color: #28a745; }
-        .button-on:hover { background-color: #218838; }
-        .button-off { background-color: #dc3545; }
-        .button-off:hover { background-color: #c82333; }
-
-        @media (max-width: 768px) {
-            .container { grid-template-columns: 1fr; }
-        }
+        .button-fire { background-color: #dc3545; } /* 按钮改为“发射”红色 */
+        .button-fire:hover { background-color: #c82333; }
+        .button-fire:disabled { background-color: #6c757d; cursor: not-allowed; } /* 新增：禁用状态样式 */
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- LED Control Section -->
+        <!-- LED Control Section (UNCHANGED) -->
         <div class="control-card">
             <h1>4-LED Light Control System</h1>
             <div class="mode-switch">
@@ -226,20 +236,20 @@ HTML_TEMPLATE = """
             <div id="led-status" class="status">Loading system status...</div>
         </div>
 
-        <!-- Water Pump Control Section -->
+        <!-- Water Pump Control Section (MODIFIED for Pulse Mode) -->
         <div class="control-card">
-            <h1>Submersible Water Pump Control</h1>
-            <div id="pump-status" class="status-display status-off">
-                Pump Status: Off
+            <h1>Submersible Water Pump (Pulse Mode)</h1>
+            <div id="pump-status" class="status-display status-ready">
+                Pump Status: Ready
             </div>
-            <button id="pump-control-btn" class="control-button button-on" onclick="togglePump()">
-                Start Pump
+            <button id="pump-control-btn" class="control-button button-fire" onclick="firePump()">
+                🔥 FIRE (2s)
             </button>
         </div>
     </div>
 
     <script>
-        // LED Control Variables and Functions
+        // LED Control Variables and Functions (UNCHANGED)
         let currentMode = 'auto';
         function setMode(mode) {
             currentMode = mode;
@@ -287,45 +297,38 @@ HTML_TEMPLATE = """
                 });
         }
 
-        // Pump Control Variables and Functions
-        let pumpIsOn = false;
-        function togglePump() {
-            pumpIsOn = !pumpIsOn;
-            updatePumpUI();
-            fetch('/toggle?state=' + (pumpIsOn ? 'on' : 'off'));
-        }
-        
-        function updatePumpUI() {
+        // Pump Control Variables and Functions (MODIFIED for Pulse Mode)
+        let isPumping = false;
+        function firePump() {
+            if (isPumping) return; // 防止重复点击
+            
+            isPumping = true;
             const statusDiv = document.getElementById('pump-status');
             const controlBtn = document.getElementById('pump-control-btn');
             
-            if (pumpIsOn) {
-                statusDiv.textContent = 'Pump Status: Running';
-                statusDiv.classList.remove('status-off');
-                statusDiv.classList.add('status-on');
-                controlBtn.textContent = 'Stop Pump';
-                controlBtn.classList.remove('button-on');
-                controlBtn.classList.add('button-off');
-            } else {
-                statusDiv.textContent = 'Pump Status: Off';
-                statusDiv.classList.remove('status-on');
-                statusDiv.classList.add('status-off');
-                controlBtn.textContent = 'Start Pump';
-                controlBtn.classList.remove('button-off');
-                controlBtn.classList.add('button-on');
-            }
+            // UI更新：显示“发射中”，禁用按钮
+            statusDiv.textContent = 'Pump Status: FIRING...';
+            statusDiv.classList.remove('status-ready');
+            statusDiv.classList.add('status-firing');
+            controlBtn.textContent = '⏳ Wait...';
+            controlBtn.disabled = true;
+            
+            // 发送请求到后端
+            fetch('/fire_pump');
+            
+            // 2秒后自动恢复UI状态
+            setTimeout(() => {
+                isPumping = false;
+                statusDiv.textContent = 'Pump Status: Ready';
+                statusDiv.classList.remove('status-firing');
+                statusDiv.classList.add('status-ready');
+                controlBtn.textContent = '🔥 FIRE (2s)';
+                controlBtn.disabled = false;
+            }, 2000);
         }
 
         // Initial Load and Updates
         function init() {
-            // Load pump status
-            fetch('/pump_status')
-                .then(response => response.json())
-                .then(data => {
-                    pumpIsOn = data.is_on;
-                    updatePumpUI();
-                });
-            
             // Start LED status updates
             updateLEDStatus();
             setInterval(updateLEDStatus, 500);
@@ -343,7 +346,7 @@ HTML_TEMPLATE = """
 def index():
     return render_template_string(HTML_TEMPLATE)
 
-# LED Routes
+# LED Routes (UNCHANGED)
 @app.route('/set_mode', methods=['POST'])
 def set_mode():
     global system_mode
@@ -367,12 +370,21 @@ def set_led():
 def status():
     return jsonify(get_status_data())
 
-# Pump Routes
+# Pump Routes (MODIFIED for Pulse Mode)
+@app.route('/fire_pump')
+def fire_pump():
+    global pump_timer
+    # 如果当前没有正在运行的脉冲，启动新线程
+    if pump_timer is None:
+        pump_timer = threading.Thread(target=pump_pulse)
+        pump_timer.daemon = True
+        pump_timer.start()
+    return "OK"
+
+# 保留旧路由以防万一，但主要用新的 /fire_pump
 @app.route('/toggle')
 def toggle_pump():
-    state = request.args.get('state', 'off')
-    pump.on() if state == 'on' else pump.off()
-    return "OK"
+    return fire_pump()
 
 @app.route('/pump_status')
 def get_pump_status():
