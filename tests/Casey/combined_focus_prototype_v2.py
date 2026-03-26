@@ -9,9 +9,9 @@ from mediapipe.tasks.python import vision
 # ============================================================
 # 1. MODEL PATHS
 # ============================================================
-FACE_MODEL_PATH = '/Users/a/Projects/smart-desk-assistant/models/face_landmarker.task'
-POSE_MODEL_PATH = '/Users/a/Projects/smart-desk-assistant/models/pose_landmarker_lite.task'
-OBJECT_MODEL_PATH = '/Users/a/Projects/smart-desk-assistant/models/efficientdet_lite0.tflite'
+FACE_MODEL_PATH = 'CPME246-Smart-Desk-Assistant-L2A-G5/models/face_landmarker.task'
+POSE_MODEL_PATH = 'CPME246-Smart-Desk-Assistant-L2A-G5/models/pose_landmarker_lite.task'
+OBJECT_MODEL_PATH = 'CPME246-Smart-Desk-Assistant-L2A-G5/models/efficientdet_lite0.tflite'
 
 
 # ============================================================
