@@ -107,14 +107,23 @@ def capture_user_photo(user_name):
     """Capture a photo of the user using the front camera and save to database"""
     print(f"\nPreparing to take your photo, {user_name}...")
     print("Position yourself in front of the camera.")
-    print("Press SPACE to capture, or 'q' to cancel")
-    
-    # Try front camera first (usually index 1), fallback to 0
-    cap = cv2.VideoCapture(1)
-    if not cap.isOpened():
+    print("Press SPACE to capture, C to switch camera, or Q to cancel")
+
+    camera_indices = [1, 0]  # front first, then back/default
+    current_camera_pos = 0
+
+    def _open_camera(index):
+        camera = cv2.VideoCapture(index)
+        if not camera.isOpened():
+            return None
+        return camera
+
+    cap = _open_camera(camera_indices[current_camera_pos])
+    if cap is None:
         print("Front camera not available, trying alternate camera...")
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
+        current_camera_pos = 1
+        cap = _open_camera(camera_indices[current_camera_pos])
+        if cap is None:
             print("Error: No camera available")
             return None
     
@@ -127,8 +136,10 @@ def capture_user_photo(user_name):
                 break
             
             # Display preview
-            cv2.putText(frame, "Press SPACE to capture, Q to cancel", 
+            cv2.putText(frame, "Press SPACE to capture, C to switch, Q to cancel", 
                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, f"Camera index: {camera_indices[current_camera_pos]}",
+                        (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             cv2.imshow('Registration Photo - Position yourself', frame)
             
             key = cv2.waitKey(1) & 0xFF
@@ -142,6 +153,16 @@ def capture_user_photo(user_name):
                 cv2.imwrite(photo_path, frame)
                 print(f"\n✓ Photo captured and saved to: {photo_path}")
                 break
+            elif key == ord('c'):
+                next_camera_pos = 1 - current_camera_pos
+                next_cap = _open_camera(camera_indices[next_camera_pos])
+                if next_cap is None:
+                    print(f"Camera {camera_indices[next_camera_pos]} is not available")
+                else:
+                    cap.release()
+                    cap = next_cap
+                    current_camera_pos = next_camera_pos
+                    print(f"Switched to camera {camera_indices[current_camera_pos]}")
             elif key == ord('q'):  # Q pressed
                 print("\nPhoto capture cancelled")
                 break
