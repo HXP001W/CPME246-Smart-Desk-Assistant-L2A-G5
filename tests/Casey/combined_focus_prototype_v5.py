@@ -15,17 +15,13 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 
-# ============================================================
-# 1. MODEL PATHS
-# ============================================================
+#model paths
 FACE_MODEL_PATH = 'models/face_landmarker.task'
 POSE_MODEL_PATH = 'models/pose_landmarker_lite.task'
 OBJECT_MODEL_PATH = 'models/efficientdet_lite2_8.tflite'
 
 
-# ============================================================
-# 2. MEDIAPIPE TASK SETUP
-# ============================================================
+#mediapipe task setup
 face_base_options = python.BaseOptions(model_asset_path=FACE_MODEL_PATH)
 face_options = vision.FaceLandmarkerOptions(
     base_options=face_base_options,
@@ -51,22 +47,19 @@ object_options = vision.ObjectDetectorOptions(
 object_detector = vision.ObjectDetector.create_from_options(object_options)
 
 
-# ============================================================
-# 3. GLOBAL SETTINGS / TUNING PARAMETERS
-# ============================================================
-
-# History lengths for smoothing
+#global settings & tuning patterns
+#history lengths for smoothing
 ATTENTION_HISTORY_LEN = 12
 POSTURE_HISTORY_LEN = 12
 PHONE_HISTORY_LEN = 12
 APP_HISTORY_LEN = 8
 
-# Timers (seconds)
+# timers in seconds
 DISTRACTION_WARNING_DELAY = 5.0
 DISTRACTION_PUNISH_DELAY = 10.0
 POSTURE_WARNING_DELAY = 5.0
 
-# Visualization settings
+#visualization settings
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 # Performance tuning
@@ -76,15 +69,15 @@ OBJECT_EVERY_N_FRAMES = 3
 APP_CHECK_EVERY_N_FRAMES = 5
 PROCESS_SCAN_TIMEOUT_SECONDS = 0.8
 
-# If phone appears in at least this many recent frames, count it as present
+#if phone appears in at least this many recent frames it is counted as present
 PHONE_TRUE_THRESHOLD = 1
 
-# Application / window focus detection settings
+# application  detection settings
 APP_FOCUS_TRUE_THRESHOLD = 3
 
-# These are examples and should be adjusted for your actual study workflow.
-# If the active window contains one of the whitelist terms, it is treated as study-related.
-# If it contains one of the blacklist terms, it is treated as distraction-related.
+#examples that can be changed
+#if the active window contains one of the whitelist terms, it is treated as study-related.
+##if it contains one of the blacklist terms, it is treated as distraction-related.
 APP_STUDY_WHITELIST = [
     "code",
     "visual studio code",
@@ -120,8 +113,9 @@ APP_DISTRACTION_BLACKLIST = [
     "pgzrun"
 ]
 
-# Process-name fallback for Wayland or when active-window lookup is unavailable.
-# These are checked against a task-manager-style process list.
+# We tested and found that the xdo only works on X11 protocol and since newer raspberry pi os uses wayland protocol, it doesn't work.
+# here are process-name fallback for Wayland or when active-window lookup is unavailable.
+# These are checked against a task manager style process list.
 APP_DISTRACTION_PROCESS_BLACKLIST = [
     "steam",
     "steamwebhelper",
@@ -154,7 +148,7 @@ APP_STUDY_PROCESS_WHITELIST = [
     "okular"
 ]
 
-# Water pump settings (same behavior as manual UI fire pulse).
+# Water pump settings with similar behavior as manual UI fire pulse
 PUMP_PIN = 18
 PUMP_ACTIVE_HIGH = True
 PUMP_PULSE_SECONDS = 1.0
@@ -166,9 +160,7 @@ BUZZER_PULSE_SECONDS = 1.0
 BUZZER_HTTP_FIRE_URL = os.getenv("FOCUS_UI_FIRE_BUZZER_URL", "http://127.0.0.1:5000/fire_buzzer")
 
 
-# ============================================================
-# 4. HELPER DATA STRUCTURES
-# ============================================================
+#logging helper data structure
 attention_history = deque(maxlen=ATTENTION_HISTORY_LEN)
 posture_history = deque(maxlen=POSTURE_HISTORY_LEN)
 phone_history = deque(maxlen=PHONE_HISTORY_LEN)
@@ -238,9 +230,7 @@ def log_event(event_type, value, details=None, duration_seconds=None):
         pass
 
 
-# ============================================================
-# 5. HELPER FUNCTIONS
-# ============================================================
+# helper function
 def euclidean_distance(p1, p2):
     return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
 
@@ -331,7 +321,7 @@ def _pump_pulse_worker():
             with urllib.request.urlopen(request_url, timeout=PUMP_HTTP_TIMEOUT_SECONDS) as response:
                 if response.status != 200:
                     raise RuntimeError(f"UI bridge returned HTTP {response.status}")
-            # UI controls physical pulse timing; small pause keeps status readable.
+
             time.sleep(0.1)
         else:
             raise RuntimeError("Pump control mode unavailable")
@@ -403,12 +393,9 @@ def get_running_process_names():
 
 
 
-# NOTE FOR RASPBERRY PI / LINUX DESKTOP USE:
-# This active-window detection code depends on X11 desktop tools.
-# Install one or both of these if needed:
-#   sudo apt install xdotool
-#   sudo apt install wmctrl x11-utils
-# On Wayland sessions, these tools may not work or may be restricted.
+#this active-window detection code depends on X11 desktop tools.
+# We installed these: sudo apt install xdotool, sudo apt install wmctrl x11-utils
+# On Wayland sessions, these tools doesn't seem to be working.
 def get_active_window_info():
     """
     Try to detect the active window title on Linux desktop environments.
@@ -428,7 +415,7 @@ def get_active_window_info():
 
     If no usable information is available, returns a safe default.
     """
-    # Wayland sessions often block or limit X11 window-inspection tools.
+
     session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
     if session_type == "wayland":
         return {
@@ -437,7 +424,7 @@ def get_active_window_info():
             "available": False
         }
 
-    # First try xdotool, which is usually the simplest option on X11.
+    # tried xdotool first.
     if shutil.which("xdotool"):
         window_title = _run_command(["xdotool", "getactivewindow", "getwindowname"])
         if window_title:
@@ -447,7 +434,7 @@ def get_active_window_info():
                 "available": True
             }
 
-    # Fallback: try xprop + wmctrl to recover the active window title.
+    # fallback try xprop + wmctrl to recover the active window title.
     if shutil.which("xprop") and shutil.which("wmctrl"):
         active_line = _run_command(["xprop", "-root", "_NET_ACTIVE_WINDOW"])
         if active_line and "window id #" in active_line:
@@ -631,7 +618,7 @@ def get_face_attention_state(face_landmarks, frame_w, frame_h):
     It is a head orientation heuristic based on landmark geometry.
     """
 
-    # Landmarks chosen for rough face orientation
+    #landmarks chosen for rough face orientation
     NOSE_TIP = 1
     LEFT_FACE = 234
     RIGHT_FACE = 454
@@ -650,16 +637,16 @@ def get_face_attention_state(face_landmarks, frame_w, frame_h):
     chin_px = (chin.x * frame_w, chin.y * frame_h)
     forehead_px = (forehead.x * frame_w, forehead.y * frame_h)
 
-    # ----- Horizontal orientation -----
+    #horizontal orientation
     left_dist = euclidean_distance(nose_px, left_px)
     right_dist = euclidean_distance(nose_px, right_px)
     horizontal_ratio = left_dist / (right_dist + 1e-6)
 
-    # ----- Vertical orientation -----
+    #vertical orientation
     face_height = euclidean_distance(forehead_px, chin_px)
     nose_y_norm = (nose_px[1] - forehead_px[1]) / (face_height + 1e-6)
 
-    # More forgiving thresholds than earlier versions
+    #more forgiving thresholds than earlier versions
     if horizontal_ratio < 0.44:
         return "LOOKING RIGHT"
     elif horizontal_ratio > 1.99:
