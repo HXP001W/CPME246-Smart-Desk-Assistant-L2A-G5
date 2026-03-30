@@ -1,0 +1,97 @@
+{
+  "total_events": 100,
+  "session_id": "2026-03-29_18-28-13_focus_session",
+  "study_duration_seconds": 178.62,
+  "water_pump_trigger_count": 6,
+  "break_count": 1,
+  "break_total_seconds": 60.01,
+  "distraction_total_seconds": 34.44,
+  "bad_posture_total_seconds": 18.17,
+  "bad_posture_event_count": 4,
+  "distraction_reason_counts": {
+    "DISTRACTED": 3,
+    "persistent_distraction": 3,
+    "PHONE DETECTED": 3,
+    "POSTURE WARNING": 1,
+    "DISTRACTING APP": 3
+  },
+  "app_focus_counts": {
+    "UNKNOWN_APP": 4,
+    "STUDY_APP": 29,
+    "DISTRACTING_APP": 5
+  },
+  "active_window_titles": [
+    "WAYLAND_UNSUPPORTED"
+  ],
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 2,
+    "module_started": 2,
+    "pump_control_initialized": 2,
+    "app_focus_changed": 6,
+    "state_update": 19,
+    "escalation_update": 24,
+    "distraction_started": 6,
+    "warning_triggered": 4,
+    "punishment_ready": 3,
+    "water_pump_triggered": 6,
+    "distraction_ended": 5,
+    "focus_restored": 3,
+    "bad_posture_started": 4,
+    "bad_posture_ended": 4,
+    "phone_detected": 2,
+    "phone_cleared": 1,
+    "focus_cycle_ended": 2,
+    "break_started": 1,
+    "break_ended": 1,
+    "session_stopped": 1,
+    "session_ended": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 2,
+      "focus_cycle_ended": 2,
+      "break_started": 1,
+      "break_ended": 1,
+      "session_stopped": 1,
+      "session_ended": 1
+    },
+    "distraction_detection": {
+      "module_started": 2,
+      "pump_control_initialized": 2,
+      "app_focus_changed": 6,
+      "state_update": 19,
+      "escalation_update": 24,
+      "distraction_started": 6,
+      "warning_triggered": 4,
+      "punishment_ready": 3,
+      "water_pump_triggered": 3,
+      "distraction_ended": 5,
+      "focus_restored": 3,
+      "bad_posture_started": 4,
+      "bad_posture_ended": 4,
+      "phone_detected": 2,
+      "phone_cleared": 1
+    },
+    "hardware_control": {
+      "water_pump_triggered": 3
+    }
+  },
+  "users_seen": [
+    "/home/eva/CMPE246_DB/Casey_1774831773.jpg"
+  ],
+  "user_names_seen": [
+    "Casey"
+  ],
+  "primary_user_name": "Casey",
+  "event_duration_totals": {
+    "bad_posture_ended": 18.17,
+    "break_ended": 60.01,
+    "distraction_ended": 34.44,
+    "focus_cycle_ended": 118.6,
+    "phone_cleared": 4.32,
+    "session_ended": 178.62,
+    "water_pump_triggered": 6.0
+  }
+}

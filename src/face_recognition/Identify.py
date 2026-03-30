@@ -3,10 +3,77 @@ import cv2
 import time
 import threading
 import gc
+import re
+import sys
 import numpy as np
 
 # Suppress unnecessary DeepFace/TensorFlow log noise
 os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')
+
+
+def _configure_stdio_for_legacy_locales():
+    """Avoid UnicodeEncodeError when terminal encoding is not UTF-8 (e.g. latin-1)."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
+
+def _safe_console_text(value):
+    text = str(value)
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+
+
+def _extract_weight_path_from_error(error_text):
+    """Extract a .h5 path from DeepFace weight-loading exceptions."""
+    match = re.search(r"(/[^\s]+\.h5)", error_text)
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _run_deepface_find_with_recovery(analysis_frame):
+    """Run DeepFace.find once, and retry after deleting a corrupted local weight file."""
+    try:
+        return _deepface_module.find(
+            img_path=analysis_frame,
+            db_path=DB_PATH,
+            enforce_detection=False,
+            silent=True
+        )
+    except Exception as exc:
+        error_text = str(exc)
+        if "loading the pre-trained weights" not in error_text:
+            raise
+
+        bad_weight_path = _extract_weight_path_from_error(error_text)
+        if not bad_weight_path:
+            raise
+
+        if os.path.exists(bad_weight_path):
+            try:
+                os.remove(bad_weight_path)
+                print(f"\nDetected a corrupted DeepFace weight file and removed it: {bad_weight_path}")
+                print("Retrying once so DeepFace can download a fresh copy...")
+            except OSError:
+                raise
+        else:
+            raise
+
+        return _deepface_module.find(
+            img_path=analysis_frame,
+            db_path=DB_PATH,
+            enforce_detection=False,
+            silent=True
+        )
+
+
+_configure_stdio_for_legacy_locales()
 
 # Provide a Qt font directory for OpenCV Qt backend to avoid QFontDatabase warnings
 for font_dir in ('/usr/share/fonts/truetype/dejavu', '/usr/share/fonts', '/usr/local/share/fonts'):
@@ -188,12 +255,7 @@ def identity_test():
         analysis_frame = cv2.resize(captured_frame, (320, 240), interpolation=cv2.INTER_AREA)
         analysis_frame = analysis_frame.astype(np.uint8)
 
-        dfs = _deepface_module.find(
-            img_path=analysis_frame,
-            db_path=DB_PATH,
-            enforce_detection=False,
-            silent=True
-        )
+        dfs = _run_deepface_find_with_recovery(analysis_frame)
 
         if dfs and len(dfs) > 0:
             result_df = dfs[0]
@@ -201,7 +263,7 @@ def identity_test():
                 matched_identity = result_df.iloc[0]['identity']
                 distance = result_df.iloc[0]['distance']
 
-                print(f"\n✓ Face recognized!")
+                print(f"\n  Face recognized!")
                 print(f"  Identity: {matched_identity}")
                 print(f"  Distance: {distance:.4f}")
                 print("\nStarting user session...")
@@ -216,7 +278,7 @@ def identity_test():
         print("\nPhoto capture interrupted by user")
         _startup(registeredUser=False, userID=-1)
     except Exception as e:
-        print(f"\nError during photo-based identification: {e}")
+        print(f"\nError during photo-based identification: {_safe_console_text(e)}")
         _startup(registeredUser=False, userID=-1)
     finally:
         cap.release()

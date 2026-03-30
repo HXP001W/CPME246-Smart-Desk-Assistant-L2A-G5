@@ -1,0 +1,58 @@
+{
+  "total_events": 24,
+  "session_id": "2026-03-29_19-01-25_focus_session",
+  "study_duration_seconds": 24.48,
+  "water_pump_trigger_count": 0,
+  "distracting_app_open_count": 0,
+  "break_count": 0,
+  "break_total_seconds": 0.0,
+  "distraction_total_seconds": 3.91,
+  "bad_posture_total_seconds": 0.0,
+  "bad_posture_event_count": 1,
+  "distraction_reason_counts": {
+    "DISTRACTING APP": 0
+  },
+  "active_window_titles": [
+    "WAYLAND_UNSUPPORTED"
+  ],
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 1,
+    "module_started": 1,
+    "pump_control_initialized": 1,
+    "app_focus_changed": 2,
+    "state_update": 6,
+    "escalation_update": 6,
+    "distraction_started": 2,
+    "distraction_ended": 2,
+    "bad_posture_started": 1,
+    "session_stopped": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 1,
+      "session_stopped": 1
+    },
+    "distraction_detection": {
+      "module_started": 1,
+      "pump_control_initialized": 1,
+      "app_focus_changed": 2,
+      "state_update": 6,
+      "escalation_update": 6,
+      "distraction_started": 2,
+      "distraction_ended": 2,
+      "bad_posture_started": 1
+    }
+  },
+  "users_seen": [
+    "-1"
+  ],
+  "user_names_seen": [
+    "Guest"
+  ],
+  "primary_user_name": "Guest",
+  "event_duration_totals": {
+    "distraction_ended": 3.91
+  }
+}

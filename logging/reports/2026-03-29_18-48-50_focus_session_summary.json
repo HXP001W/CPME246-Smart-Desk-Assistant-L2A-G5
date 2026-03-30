@@ -1,0 +1,91 @@
+{
+  "total_events": 106,
+  "session_id": "2026-03-29_18-48-50_focus_session",
+  "study_duration_seconds": 153.6,
+  "water_pump_trigger_count": 2,
+  "distracting_app_open_count": 1,
+  "break_count": 1,
+  "break_total_seconds": 60.01,
+  "distraction_total_seconds": 34.35,
+  "bad_posture_total_seconds": 13.41,
+  "bad_posture_event_count": 6,
+  "distraction_reason_counts": {
+    "DISTRACTED": 4,
+    "PHONE DETECTED": 1,
+    "DISTRACTING APP": 1
+  },
+  "active_window_titles": [
+    "WAYLAND_UNSUPPORTED"
+  ],
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 2,
+    "module_started": 2,
+    "pump_control_initialized": 2,
+    "app_focus_changed": 5,
+    "state_update": 25,
+    "bad_posture_started": 6,
+    "escalation_update": 27,
+    "bad_posture_ended": 6,
+    "distraction_started": 7,
+    "warning_triggered": 2,
+    "punishment_ready": 1,
+    "water_pump_triggered": 4,
+    "distraction_ended": 6,
+    "focus_restored": 2,
+    "phone_detected": 1,
+    "phone_cleared": 1,
+    "focus_cycle_ended": 2,
+    "break_started": 1,
+    "break_ended": 1,
+    "session_stopped": 1,
+    "session_ended": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 2,
+      "focus_cycle_ended": 2,
+      "break_started": 1,
+      "break_ended": 1,
+      "session_stopped": 1,
+      "session_ended": 1
+    },
+    "distraction_detection": {
+      "module_started": 2,
+      "pump_control_initialized": 2,
+      "app_focus_changed": 5,
+      "state_update": 25,
+      "bad_posture_started": 6,
+      "escalation_update": 27,
+      "bad_posture_ended": 6,
+      "distraction_started": 7,
+      "warning_triggered": 2,
+      "punishment_ready": 1,
+      "water_pump_triggered": 2,
+      "distraction_ended": 6,
+      "focus_restored": 2,
+      "phone_detected": 1,
+      "phone_cleared": 1
+    },
+    "hardware_control": {
+      "water_pump_triggered": 2
+    }
+  },
+  "users_seen": [
+    "/home/eva/CMPE246_DB/Lea_1774825500.jpg"
+  ],
+  "user_names_seen": [
+    "Lea"
+  ],
+  "primary_user_name": "Lea",
+  "event_duration_totals": {
+    "bad_posture_ended": 13.41,
+    "break_ended": 60.01,
+    "distraction_ended": 34.35,
+    "focus_cycle_ended": 93.58,
+    "phone_cleared": 5.43,
+    "session_ended": 153.6,
+    "water_pump_triggered": 4.0
+  }
+}
