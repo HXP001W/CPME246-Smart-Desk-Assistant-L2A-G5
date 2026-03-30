@@ -1,0 +1,79 @@
+{
+  "total_events": 72,
+  "session_id": "2026-03-29_18-53-42_focus_session",
+  "study_duration_seconds": 62.47,
+  "water_pump_trigger_count": 1,
+  "distracting_app_open_count": 0,
+  "break_count": 1,
+  "break_total_seconds": 0.0,
+  "distraction_total_seconds": 29.6,
+  "bad_posture_total_seconds": 3.44,
+  "bad_posture_event_count": 3,
+  "distraction_reason_counts": {
+    "DISTRACTED": 3,
+    "DISTRACTING APP": 0
+  },
+  "active_window_titles": [
+    "WAYLAND_UNSUPPORTED"
+  ],
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 1,
+    "module_started": 1,
+    "pump_control_initialized": 1,
+    "app_focus_changed": 2,
+    "state_update": 19,
+    "escalation_update": 15,
+    "distraction_started": 9,
+    "distraction_ended": 9,
+    "bad_posture_started": 3,
+    "bad_posture_ended": 3,
+    "warning_triggered": 1,
+    "punishment_ready": 1,
+    "water_pump_triggered": 2,
+    "focus_restored": 1,
+    "focus_cycle_ended": 1,
+    "break_started": 1,
+    "session_stopped": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 1,
+      "focus_cycle_ended": 1,
+      "break_started": 1,
+      "session_stopped": 1
+    },
+    "distraction_detection": {
+      "module_started": 1,
+      "pump_control_initialized": 1,
+      "app_focus_changed": 2,
+      "state_update": 19,
+      "escalation_update": 15,
+      "distraction_started": 9,
+      "distraction_ended": 9,
+      "bad_posture_started": 3,
+      "bad_posture_ended": 3,
+      "warning_triggered": 1,
+      "punishment_ready": 1,
+      "water_pump_triggered": 1,
+      "focus_restored": 1
+    },
+    "hardware_control": {
+      "water_pump_triggered": 1
+    }
+  },
+  "users_seen": [
+    "/home/eva/CMPE246_DB/Lea_1774825500.jpg"
+  ],
+  "user_names_seen": [
+    "Lea"
+  ],
+  "primary_user_name": "Lea",
+  "event_duration_totals": {
+    "bad_posture_ended": 3.44,
+    "distraction_ended": 29.6,
+    "focus_cycle_ended": 60.1,
+    "water_pump_triggered": 2.0
+  }
+}

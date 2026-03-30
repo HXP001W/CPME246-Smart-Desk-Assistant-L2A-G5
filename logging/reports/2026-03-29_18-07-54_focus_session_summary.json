@@ -1,0 +1,36 @@
+{
+  "total_events": 12,
+  "session_id": "2026-03-29_18-07-54_focus_session",
+  "study_duration_seconds": 8.01,
+  "water_pump_trigger_count": 0,
+  "distraction_reason_counts": {},
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 1,
+    "module_started": 1,
+    "pump_control_initialized": 1,
+    "state_update": 3,
+    "escalation_update": 2,
+    "session_stopped": 1,
+    "focus_cycle_ended": 1,
+    "session_ended": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 1,
+      "session_stopped": 1,
+      "focus_cycle_ended": 1,
+      "session_ended": 1
+    },
+    "distraction_detection": {
+      "module_started": 1,
+      "pump_control_initialized": 1,
+      "state_update": 3,
+      "escalation_update": 2
+    }
+  },
+  "users_seen": [
+    "/home/eva/CMPE246_DB/Lea_1774825500.jpg"
+  ]
+}

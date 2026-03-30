@@ -1,11 +1,10 @@
 class User:
-    def __init__(self, userID=-1, name=None, focusTime=0, breakTime=0, light=None, audioFile=None):
+    def __init__(self, userID=-1, name=None, focusTime=0, breakTime=0, light=None):
         self.userID = userID #This is the path of their picture in the database, which will be used to pull their settings and reports
         self.name = name
         self.focusTime = focusTime
         self.breakTime = breakTime
         self.light = light
-        self.audioFile = audioFile
         self.reportData = []
     
     def start(self):
@@ -16,7 +15,6 @@ class User:
     def options(self):
         print("Current rhythm: Focus time -", self.focusTime, "minutes, Break time -", self.breakTime, "minutes.")
         print("Light setting:", self.light)
-        print("Audio file:", self.audioFile)
         print("Reports available:", len(self.reportData))
         
         print(f"Options:")
@@ -34,8 +32,7 @@ class User:
             print("Invalid choice. Please try again.")
     
     def start_focus_session(self):
-        print("Starting focus session for", self.focusTime, "minutes. Enjoy your music:", self.audioFile)
-        # Here you would add the logic to start the timer and play the audio file
+        print("Starting focus session for", self.focusTime, "minutes.")
     
     def update_settings(self):
         try:
@@ -45,9 +42,8 @@ class User:
         print("\n=== Settings Menu ===")
         print("1. Update Focus/Break Time")
         print("2. Update Light Setting")
-        print("3. Update Audio File")
-        print("4. Delete Profile")
-        print("5. Back to Options")
+        print("3. Delete Profile")
+        print("4. Back to Options")
         
         choice = input("Enter your choice: ")
         
@@ -63,11 +59,6 @@ class User:
             testmain.save_users()
             self.options()
         elif choice == '3':
-            self.audioFile = input("Enter new audio file path: ")
-            print("✓ Audio file updated successfully!")
-            testmain.save_users()
-            self.options()
-        elif choice == '4':
             confirm = input(f"Are you sure you want to delete the profile for {self.name}? This cannot be undone. (yes/no): ")
             if confirm.lower() == 'yes':
                 if testmain.delete_profile(self):
@@ -79,7 +70,7 @@ class User:
             else:
                 print("Profile deletion cancelled.")
                 self.update_settings()
-        elif choice == '5':
+        elif choice == '4':
             self.options()
         else:
             print("Invalid choice. Please try again.")

@@ -1,0 +1,1 @@
+{"timestamp": "2026-03-29T17:50:11.520312", "session_id": "2026-03-29_17-49-48_focus_session", "module": "hardware_control", "event_type": "water_pump_triggered", "value": "triggered", "details": {"reason": "persistent_distraction", "duration_seconds": 1.0, "source": "ui_fire_pump_route"}, "user_id": "/home/eva/CMPE246_DB/Casey_1774831773.jpg"}

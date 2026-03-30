@@ -1,0 +1,51 @@
+{
+  "total_events": 35,
+  "session_id": "2026-03-29_17-49-48_focus_session",
+  "study_duration_seconds": 29.03,
+  "water_pump_trigger_count": 2,
+  "distraction_reason_counts": {
+    "PHONE DETECTED": 1,
+    "DISTRACTED": 3,
+    "persistent_distraction": 1
+  },
+  "event_type_counts": {
+    "session_started": 1,
+    "focus_cycle_started": 1,
+    "module_started": 1,
+    "pump_control_initialized": 1,
+    "state_update": 10,
+    "escalation_update": 11,
+    "warning_triggered": 2,
+    "focus_restored": 2,
+    "punishment_ready": 1,
+    "water_pump_triggered": 2,
+    "session_stopped": 1,
+    "focus_cycle_ended": 1,
+    "session_ended": 1
+  },
+  "module_event_counts": {
+    "session_manager": {
+      "session_started": 1,
+      "focus_cycle_started": 1,
+      "session_stopped": 1,
+      "focus_cycle_ended": 1,
+      "session_ended": 1
+    },
+    "distraction_detection": {
+      "module_started": 1,
+      "pump_control_initialized": 1,
+      "state_update": 10,
+      "escalation_update": 11,
+      "warning_triggered": 2,
+      "focus_restored": 2,
+      "punishment_ready": 1,
+      "water_pump_triggered": 1
+    },
+    "hardware_control": {
+      "water_pump_triggered": 1
+    }
+  },
+  "users_seen": [
+    "/home/eva/CMPE246_DB/Casey_1774831773.jpg"
+  ]
+}
