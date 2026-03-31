@@ -754,9 +754,7 @@ def get_escalation_label(distraction_duration, posture_duration, combined_state)
     return "NORMAL"
 
 
-# ============================================================
-# 6. CAMERA SETUP
-# ============================================================
+#camera setup
 setup_event_logger()
 log_event(
     'module_started',
@@ -787,9 +785,7 @@ if not cap.isOpened():
     exit()
 
 
-# ============================================================
-# 7. MAIN LOOP
-# ============================================================
+# main loop
 frame_idx = 0
 last_pose_result = None
 last_object_result = None
@@ -841,28 +837,28 @@ while True:
     app_focus_state_current = last_app_focus_state
     process_hint_current = last_process_hint
 
-    # ---------------- FACE ----------------
+    #face
     if face_result.face_landmarks:
         face_landmarks = face_result.face_landmarks[0]
         draw_sparse_face_landmarks(frame, face_landmarks)
         attention_state_current = get_face_attention_state(face_landmarks, frame_w, frame_h)
 
-    # ---------------- POSE ----------------
+    #pose
     if pose_result.pose_landmarks:
         pose_landmarks = pose_result.pose_landmarks[0]
         draw_pose_landmarks(frame, pose_landmarks)
         posture_state_current = get_posture_state(pose_landmarks, frame_w, frame_h)
 
-    # ---------------- OBJECT DETECTION ----------------
+    #object detection
     draw_object_boxes(frame, object_result)
     phone_present_current = detect_phone(object_result)
 
-    # ---------------- ACTIVE WINDOW / APP DETECTION ----------------
+    # active window and app detection
     if frame_idx % APP_CHECK_EVERY_N_FRAMES == 0:
         active_window_info = get_active_window_info()
         app_focus_state_current = classify_app_focus_state(active_window_info)
 
-        # Wayland fallback: infer focus category from running processes.
+        # Wayland fallback
         if app_focus_state_current == "UNKNOWN_APP":
             process_names = get_running_process_names()
             process_based_state = classify_app_focus_state_from_processes(process_names)
@@ -900,13 +896,13 @@ while True:
         last_app_focus_state = app_focus_state_current
         last_process_hint = process_hint_current
 
-    # ---------------- APPEND TO HISTORY ----------------
+    # append to history
     attention_history.append(attention_state_current)
     posture_history.append(posture_state_current)
     phone_history.append(phone_present_current)
     app_history.append(app_focus_state_current)
 
-    # ---------------- SMOOTHED STATES ----------------
+
     attention_state = most_common_or_default(attention_history, "FACE MISSING")
     posture_state = most_common_or_default(posture_history, "UNKNOWN")
     phone_present = smoothed_phone_present(phone_history)
@@ -941,7 +937,7 @@ while True:
         )
         last_combined_state = combined_state
 
-    # ---------------- TIMER LOGIC ----------------
+    #timer
     distraction_now = combined_state in ["DISTRACTED", "PHONE DETECTED", "HEAD DOWN", "DISTRACTING APP"]
     bad_posture_now = combined_state == "POSTURE WARNING"
 
@@ -1076,7 +1072,7 @@ while True:
 
         last_escalation_state = escalation_state
 
-    # ---------------- ALERT TEXT ----------------
+    # alert messages
     distraction_message = ""
     posture_message = ""
 
@@ -1107,8 +1103,8 @@ while True:
                 duration_seconds=PUMP_PULSE_SECONDS,
             )
 
-    # ---------------- DRAW STATUS ----------------
-    # Combined state color
+    #drwaw the status
+    #combined state color
     if combined_state == "FOCUSED":
         state_color = (0, 255, 0)
     elif combined_state == "POSTURE WARNING":
@@ -1116,7 +1112,6 @@ while True:
     else:
         state_color = (0, 0, 255)
 
-    # Escalation color
     if escalation_state == "NORMAL":
         escalation_color = (0, 255, 0)
     elif escalation_state == "MONITORING":
@@ -1133,14 +1128,14 @@ while True:
         fps_counter = 0
         fps_window_start = current_time
 
-    # Active window title (truncated for display). Hide unsupported marker in overlay.
+    #Active window title.
     window_title_display = active_window_info.get("window_title", "UNAVAILABLE")
     if window_title_display == "WAYLAND_UNSUPPORTED":
         window_title_display = ""
     elif len(window_title_display) > 60:
         window_title_display = window_title_display[:57] + "..."
 
-    # Responsive two-panel layout so text blocks do not overlap on narrower frames.
+    # implemented responsive two-panel layout to address text blocks overlapping on narrower frames
     panel_gap = 12
     side_margin = 14
     max_panel_w = (frame_w - (2 * side_margin) - panel_gap) // 2
@@ -1176,7 +1171,7 @@ while True:
         text_offset_x=18,
     )
 
-    # Warning / punishment-ready messages near bottom
+    # Warning & punishment-ready messages near bottom
     if distraction_message:
         overlay = frame.copy()
         cv2.rectangle(overlay, (10, frame_h - 72), (frame_w - 10, frame_h - 36), (40, 40, 150), -1)
@@ -1195,9 +1190,7 @@ while True:
         break
 
 
-# ============================================================
-# 8. CLEANUP
-# ============================================================
+#cleanup
 cap.release()
 cv2.destroyAllWindows()
 face_landmarker.close()
