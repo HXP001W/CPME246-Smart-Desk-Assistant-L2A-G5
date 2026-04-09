@@ -25,14 +25,14 @@ except:
 LED_PINS = [22, 23, 24, 25]
 LIGHT_SENSOR_PIN = 27  # Physical Pin 13
 
-# Water Pump Configuration (修改1：active_high改为True)
+# Water Pump Configuration 
 PUMP_PIN = 18  # Physical Pin 11, connected to relay IN
 pump = OutputDevice(PUMP_PIN, active_high=True, initial_value=False)
 pump_timer = None
 buzzer_timer = None
 
 
-BUZZER_PIN = 26  # 对应树莓派37号物理引脚
+BUZZER_PIN = 26  
 buzzer = Buzzer(BUZZER_PIN, active_high=True, initial_value=False)
 
 
@@ -648,7 +648,7 @@ def setup_hardware():
     # Pump initialization
     print(f" Water pump initialized on GPIO {PUMP_PIN} (Pulse Mode: 1.0 seconds, Active HIGH)")
     
-    # 蜂鸣器初始化
+    # Buzzer initialization
     print(f" 2-Pin Buzzer initialized on GPIO {BUZZER_PIN}")
 
 
@@ -675,7 +675,7 @@ def safe_shutdown():
     except Exception as e:
         print(f"Failed to release water pump: {str(e)}")
     
-    # 蜂鸣器安全释放
+    # Release buzzer
     try:
         buzzer.off()
         buzzer.close()
@@ -726,7 +726,7 @@ def auto_mode_loop():
 
 
 def pump_pulse():
-    """启动水泵1秒，同时蜂鸣器响，然后自动同步关闭"""
+    """Trigger buzzer and pump"""
     global pump_timer
     try:
         pump.on()
@@ -1129,7 +1129,7 @@ def user_session_report(session_id):
         )
 
 
-# LED Routes (完全未改动)
+# LED Routes 
 @app.route('/set_mode', methods=['POST'])
 def set_mode():
     global system_mode
@@ -1153,7 +1153,7 @@ def set_led():
 def status():
     return jsonify(get_status_data())
 
-# Pump Routes (完全未改动)
+# Pump Routes 
 @app.route('/fire_pump')
 def fire_pump():
     global pump_timer
@@ -1236,7 +1236,7 @@ def fire_buzzer():
 
     return "OK"
 
-# STATUS HELPER (完全未改动)
+# STATUS HELPER 
 def get_status_data():
     light_value = 0.5
     if light_sensor_available:
@@ -1264,7 +1264,7 @@ def _open_ui_after_startup(url, delay_seconds=1.0):
     except Exception:
         pass
 
-# MAIN (完全未改动)
+# MAIN 
 if __name__ == '__main__':
     try:
         print("=" * 50)
