@@ -1,102 +1,89 @@
-# CPME246-Smart-Desk-Assistant-L2A-G5
-CMPE 246 Mid-Term Project: Intelligent Focus Tracking &amp; Adaptive Study Support System
+# Smart Desk Assistant
 
-## Overview
-This project implements an intelligent desk assistant that tracks user focus and provides adaptive study support through face recognition, environmental monitoring, and personalized user profiles.
+The **Smart Desk Assistant** is a Raspberry-Pi-based study companion that combines a web UI, computer vision, facial recognition, application monitoring, logging, report generation, and hardware feedback.
 
-## Project Structure
+The goal of the system is to help a user maintain focus during timed study sessions. During a session, the system monitors several signals:
 
-### Modules
+- whether the user's face is visible
+- approximate head direction and attention state
+- coarse posture state
+- whether a phone is detected in the camera view
+- whether a distracting application/window is active
+- whether the user has stayed distracted long enough to receive a warning or hardware response
 
-#### DeepFace Integration
-The project integrates **DeepFace**, a lightweight face recognition and facial attribute analysis framework, for advanced user identification and monitoring capabilities.
+The main entry point of the project is **`UI.py`**. It starts the Flask web interface, manages user flow, launches the real-time focus detection process, controls hardware outputs, and connects to the logging/reporting system.
 
-- **Location**: `modules/deepface/`
-- **Purpose**: Provides state-of-the-art face recognition using models like VGG-Face, FaceNet, OpenFace, DeepFace, DeepID, ArcFace, Dlib, and more
-- **Key Features**:
-  - Face verification to authenticate users
-  - Face recognition with database search capabilities
-  - Facial attribute analysis (age, gender, emotion, race detection)
-  - Support for multiple backend databases (PostgreSQL, MongoDB, Neo4j, pgvector, Pinecone)
-  - High accuracy face detection and alignment
+## Main Features
 
-For detailed DeepFace documentation, see [`modules/deepface/README.md`](modules/deepface/README.md)
+- Web-based user interface built with Flask
+- Guest and registered-user workflow
+- Facial recognition with DeepFace
+- Real-time webcam-based focus monitoring with OpenCV and MediaPipe
+- Posture, phone, and app/window distraction detection
+- LED brightness feedback based on a light sensor
+- Buzzer and water pump feedback for warnings and persistent distraction
+- Structured JSONL logging
+- Session report generation
 
-#### Face Recognition Module
-- **Location**: `modules/face_recognition/`
-- **Components**:
-  - `User.py`: User profile management
-  - `testmain.py`: Main testing and user registration interface
-  - `ProfileTest.py`: Profile testing utilities
+## High-Level System Flow
 
-#### Environment Monitoring
-- **Location**: `src/environment/`
-- **Components**:
-  - `environment_monitor.py`: Monitors desk environment conditions
-  - `environment_logger.py`: Logs environmental data
-  - `mock_hardware.py`: Hardware simulation for testing
-
-## Installation
-
-### Requirements
-
-#### For Development (Windows/Mac/Linux)
-```bash
-pip install -r requirements.txt
+```text
+User
+  ↓
+Flask Web UI (UI.py)
+  ↓
+User recognition / guest mode
+  ↓
+Focus session starts
+  ↓
+combined_focus_prototype_v5.py monitors:
+  - face attention
+  - posture
+  - phone detection
+  - active app/window
+  ↓
+Decision engine produces:
+  - FOCUSED
+  - DISTRACTED
+  - PHONE DETECTED
+  - HEAD DOWN
+  - POSTURE WARNING
+  - DISTRACTING APP
+  ↓
+System response:
+  - visual status window
+  - UI warning
+  - buzzer
+  - water pump trigger
+  - JSONL event logs
+  ↓
+report_generator.py creates a readable session summary
 ```
 
-#### For Raspberry Pi Deployment (Hardware Dependencies)
-On Raspberry Pi only, install additional hardware dependencies:
-```bash
-pip install -r requirements-hardware.txt
-```
+## Repository Guide
 
-### DeepFace Setup
-```bash
-pip install deepface tf-keras
-```
+Recommended documentation files:
 
-You do **not** need to clone the full DeepFace repository to use `modules/face_recognition/`.
-The project can use the PyPI package directly.
+- [`docs/01_architecture.md`](docs/01_architecture.md) — overall system architecture
+- [`docs/02_file_map.md`](docs/02_file_map.md) — explanation of each Python file
+- [`docs/03_distraction_detection_v5.md`](docs/03_distraction_detection_v5.md) — detailed explanation of the focus/distraction detection engine
+- [`docs/04_logging_and_reports.md`](docs/04_logging_and_reports.md) — logging format and report generation
+- [`docs/05_tools_and_dependencies.md`](docs/05_tools_and_dependencies.md) — software tools and libraries
+- [`docs/06_presentation_notes.md`](docs/06_presentation_notes.md) — presentation and Q&A notes
 
-## Configuration
+## Main Runtime Files
 
-### Database Path
-The face recognition database path can be configured via environment variable:
-```bash
-# Windows
-set CMPE246_DB_PATH=C:\path\to\your\database
+| File                             | Purpose                                                         |
+|----------------------------------|-----------------------------------------------------------------|
+| `UI.py`                          | Main Flask UI, session manager, hardware control, report viewer |
+| `combined_focus_prototype_v5.py` | Real-time focus/distraction/posture/app detection               |
+| `Identify.py`                    | DeepFace-based one-time facial recognition                      |
+| `testmain.py`                    | User registration, profile loading/saving, photo capture        |
+| `User.py`                        | User profile object and command-line profile menu               |
+| `logger.py`                      | Thread-safe structured JSONL event logger                       |
+| `report_generator.py`            | Session log summarizer and HTML report generator                |
+| `sessionid_helper.py`            | Small utility for generating session IDs                        |
 
-# Linux/Mac
-export CMPE246_DB_PATH=/path/to/your/database
-```
+## Notes
 
-If not set, the default path will be `~/CMPE246_DB` in your home directory.
-
-## Usage
-
-### Face Recognition Testing
-```bash
-python modules/face_recognition/testmain.py
-```
-
-### Environment Monitoring
-```bash
-python src/environment/test_env_system.py
-```
-
-## Features
-
-- **User Authentication**: Face recognition-based user identification using DeepFace
-- **Profile Management**: Personalized user profiles with custom focus/break times, lighting preferences, and audio settings
-- **Environmental Monitoring**: Real-time monitoring of desk conditions
-- **Guest Mode**: Quick access without registration
-- **Multi-user Support**: Support for up to 4 registered users
-
-## Documentation
-- Project proposal: `docs/proposal/`
-- Design documentation: `docs/design/`
-- Deployment guides: `docs/deployment/`
-
-## License
-See [LICENSE](LICENSE) file for details.
+This project is designed as a prototype. The distraction and posture states are produced by interpretable heuristics, not by a medically validated ergonomic model or full eye-tracking model. The hardware feedback system should be tested carefully and used only in a safe demo configuration.
