@@ -64,12 +64,12 @@ report_generator.py creates a readable session summary
 
 Recommended documentation files:
 
-- [`docs/01_architecture.md`](docs/documents/01_architecture.md) — overall system architecture
-- [`docs/02_file_map.md`](docs/documents/02_file_map.md) — explanation of each Python file
-- [`docs/03_distraction_detection_v5.md`](docs/documents/03_distraction_detection_v5.md) — detailed explanation of the focus/distraction detection engine
-- [`docs/04_logging_and_reports.md`](docs/documents/04_logging_and_reports.md) — logging format and report generation
-- [`docs/05_tools_and_dependencies.md`](docs/documents/05_tools_and_dependencies.md) — software tools and libraries
-- [`docs/06_presentation_notes.md`](docs/documents/06_presentation_notes.md) — presentation and Q&A notes
+- [`docs/documents/01_architecture.md`](docs/documents/01_architecture.md) — overall system architecture
+- [`docs/documents/02_file_map.md`](docs/documents/02_file_map.md) — explanation of each Python file
+- [`docs/documents/03_distraction_detection_v5.md`](docs/documents/03_distraction_detection_v5.md) — detailed explanation of the focus/distraction detection engine
+- [`docs/documents/04_logging_and_reports.md`](docs/documents/04_logging_and_reports.md) — logging format and report generation
+- [`docs/documents/05_tools_and_dependencies.md`](docs/documents/05_tools_and_dependencies.md) — software tools and libraries
+- [`docs/documents/06_presentation_notes.md`](docs/documents/06_presentation_notes.md) — presentation and Q&A notes
 
 ## Main Runtime Files
 
